@@ -7,7 +7,7 @@ mongoose.connect(process.env.MONGO_URI).then(async () => {
     const GameOwnership = mongoose.connection.db.collection('gameownerships');
 
     // Delete the item with this ownership_token
-    const token = 'dddb62b110e08541a6276af86a9d6db3';
+    const token = '37bfeea0680c60e8ab9a203a4783df7d';
 
     const result = await GameOwnership.deleteOne({ ownership_token: token });
 

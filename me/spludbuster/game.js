@@ -9,13 +9,13 @@ class MenuScene extends Phaser.Scene {
     preload() {
         // Charger les assets nécessaires pour le menu
         this.load.image('background', 'assets/background.png');
-        
+
         // Barre de chargement
         const progressBar = this.add.graphics();
         const progressBox = this.add.graphics();
         progressBox.fillStyle(0x222222, 0.8);
         progressBox.fillRect(240, 270, 320, 50);
-        
+
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
         const loadingText = this.make.text({
@@ -28,7 +28,7 @@ class MenuScene extends Phaser.Scene {
             }
         });
         loadingText.setOrigin(0.5, 0.5);
-        
+
         const percentText = this.make.text({
             x: width / 2,
             y: height / 2,
@@ -39,7 +39,7 @@ class MenuScene extends Phaser.Scene {
             }
         });
         percentText.setOrigin(0.5, 0.5);
-        
+
         // Gestion du chargement
         this.load.on('progress', (value) => {
             progressBar.clear();
@@ -47,15 +47,15 @@ class MenuScene extends Phaser.Scene {
             progressBar.fillRect(250, 280, 300 * value, 30);
             percentText.setText(parseInt(value * 100) + '%');
         });
-        
+
         this.load.on('filecomplete', (key, type, data) => {
             console.log('Asset chargé:', key);
         });
-        
+
         this.load.on('loaderror', (file) => {
             console.error('Erreur de chargement:', file.key);
         });
-        
+
         this.load.on('complete', () => {
             progressBar.destroy();
             progressBox.destroy();
@@ -322,7 +322,7 @@ class OptionsScene extends Phaser.Scene {
         difficulties.forEach((diff, index) => {
             const x = 280 + index * 200;
             const isSelected = difficultyValues[index] === this.settings.difficulty;
-            const button = this.add.rectangle(x, 400, 150, 50, 
+            const button = this.add.rectangle(x, 400, 150, 50,
                 isSelected ? difficultyColors[index] : 0x666666)
                 .setInteractive({ useHandCursor: true })
                 .on('pointerdown', () => {
@@ -473,14 +473,14 @@ class CharacterSelectScene extends Phaser.Scene {
             frameWidth: 32,
             frameHeight: 32
         });
-        
+
         // Charger toutes les armes
         const weapons = [
             'Bow02', 'Club01', 'EnergySword01', 'Hammer01', 'Knife01',
             'Mace01', 'Scimitar01', 'Scythe01', 'Shuriken01', 'Sling01',
             'Spear01', 'Staff01', 'Sword01', 'ThrowingAxe01', 'Wand01'
         ];
-        
+
         weapons.forEach(weapon => {
             this.load.image(`weapon_${weapon}`, `assets/weapon/${weapon}.png`);
             this.load.image(`weaponIcon_${weapon}`, `assets/weapon/Icons/${weapon}.png`);
@@ -517,7 +517,7 @@ class CharacterSelectScene extends Phaser.Scene {
         // Aperçu animé du personnage
         const characterPreview = this.add.sprite(480, 280, 'characterSheet', 0);
         characterPreview.setScale(2);
-        
+
         // Animation du personnage
         this.anims.create({
             key: 'characterIdle',
@@ -722,14 +722,14 @@ class GameScene extends Phaser.Scene {
         this.load.image('enemy', 'assets/enemy.png');
         this.load.image('background', 'assets/background.png');
         this.load.audio('hit', 'assets/hit.wav');
-        
+
         // Charger toutes les armes pour les projectiles
         const weapons = [
             'Bow02', 'Club01', 'EnergySword01', 'Hammer01', 'Knife01',
             'Mace01', 'Scimitar01', 'Scythe01', 'Shuriken01', 'Sling01',
             'Spear01', 'Staff01', 'Sword01', 'ThrowingAxe01', 'Wand01'
         ];
-        
+
         weapons.forEach(weapon => {
             this.load.image(`weapon_${weapon}`, `assets/weapon/${weapon}.png`);
         });
@@ -740,27 +740,34 @@ class GameScene extends Phaser.Scene {
         this.settings = {
             volume: parseFloat(localStorage.getItem('gameVolume') || '0.3'),
             difficulty: localStorage.getItem('gameDifficulty') || 'normal',
-            playerSpeed: parseFloat(localStorage.getItem('playerSpeed') || '200'),
+            playerSpeed: parseFloat(localStorage.getItem('playerSpeed') || '150'), // Plus lent au début
             selectedWeapon: localStorage.getItem('selectedWeapon') || 'Sword01'
         };
 
         // Réinitialiser les variables
         this.score = 0;
+        this.totalExp = 0;
+        this.totalGold = 0;
         this.lastShotTime = 0;
         this.gameOver = false;
 
-        // Fond - utiliser une image unique étirée au lieu de tuiles répétitives
-        this.background = this.add.image(480, 360, 'background');
-        this.background.setDisplaySize(960, 720); // Étirer l'image pour couvrir tout l'écran
-        this.background.setOrigin(0.5, 0.5);
-        this.background.setDepth(-1); // Mettre en arrière-plan
+        // Définir un monde plus grand (Brotato-style)
+        const worldWidth = 2400;
+        const worldHeight = 1800;
+        this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
-        // Joueur avec sprite sheet - réduire la taille
-        this.player = this.physics.add.sprite(480, 360, 'characterSheet', 0);
+        // Fond - utiliser une image unique étirée pour couvrir le monde entier
+        this.background = this.add.image(worldWidth / 2, worldHeight / 2, 'background');
+        this.background.setDisplaySize(worldWidth, worldHeight);
+        this.background.setOrigin(0.5, 0.5);
+        this.background.setDepth(-1);
+
+        // Joueur avec sprite sheet - PLUS GRAND (style Brotato)
+        this.player = this.physics.add.sprite(worldWidth / 2, worldHeight / 2, 'characterSheet', 0);
         this.player.setCollideWorldBounds(true);
-        this.player.setScale(0.7); // Réduit de 1.0 à 0.7
-        this.player.body.setSize(22, 22); // Ajuster la hitbox proportionnellement
-        this.player.health = 100;
+        this.player.setScale(6.0); // TRÈS TRÈS grand sprite
+        this.player.body.setSize(28, 28);
+        this.player.health = 20; // Brotato commence avec peu de vie
 
         // Créer les animations du personnage
         this.anims.create({
@@ -776,6 +783,11 @@ class GameScene extends Phaser.Scene {
             repeat: -1
         });
         this.player.play('characterIdle');
+
+        // CAMÉRA - Suivre le joueur (Brotato-style)
+        this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
+        this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+        this.cameras.main.setZoom(0.6); // Zoom arrière pour voir plus de map
 
         // Groupe de balles (utilise l'arme sélectionnée)
         this.bullets = this.physics.add.group({
@@ -796,42 +808,69 @@ class GameScene extends Phaser.Scene {
         // Collisions ennemi ↔ joueur
         this.physics.add.overlap(this.enemies, this.player, this.hitPlayer, null, this);
 
-        // Score
-        this.scoreText = this.add.text(20, 20, 'Score: 0', {
-            fontSize: '24px',
+        // UI - Score (coin supérieur gauche - ajusté pour zoom 0.6)
+        this.scoreText = this.add.text(15, 15, 'Score: 0', {
+            fontSize: '18px',
             fill: '#ffffff',
             fontStyle: 'bold',
             stroke: '#000000',
-            strokeThickness: 4
+            strokeThickness: 3
         });
+        this.scoreText.setScrollFactor(0); // Fixer à la caméra
+        this.scoreText.setDepth(100);
 
-        // Barre de vie (fond)
-        this.healthBarBg = this.add.rectangle(860, 30, 80, 20, 0x333333);
+        // UI - Barre de vie (coin supérieur droit - ajustée pour zoom)
+        this.healthBarBg = this.add.rectangle(835, 25, 100, 20, 0x333333);
         this.healthBarBg.setOrigin(0, 0.5);
+        this.healthBarBg.setScrollFactor(0);
+        this.healthBarBg.setDepth(100);
 
-        // Barre de vie (vie actuelle)
-        this.healthBar = this.add.rectangle(860, 30, 80, 20, 0x00ff00);
+        this.healthBar = this.add.rectangle(835, 25, 100, 20, 0x00ff00);
         this.healthBar.setOrigin(0, 0.5);
+        this.healthBar.setScrollFactor(0);
+        this.healthBar.setDepth(100);
 
-        // Texte de vie
-        this.add.text(860, 30, 'Vie', {
+        this.healthText = this.add.text(755, 25, 'Vie', {
             fontSize: '16px',
             fill: '#ffffff',
             fontStyle: 'bold'
-        }).setOrigin(0, 0.5).setX(780);
+        }).setOrigin(0, 0.5);
+        this.healthText.setScrollFactor(0);
+        this.healthText.setDepth(100);
+
+        // UI - Affichage EXP et Gold (espacés et mieux positionnés)
+        this.expText = this.add.text(15, 45, 'EXP: 0', {
+            fontSize: '16px',
+            fill: '#00ffff',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 3
+        });
+        this.expText.setScrollFactor(0);
+        this.expText.setDepth(100);
+
+        this.goldText = this.add.text(15, 75, 'Gold: 0', {
+            fontSize: '16px',
+            fill: '#ffff00',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 3
+        });
+        this.goldText.setScrollFactor(0);
+        this.goldText.setDepth(100);
 
         // Son avec volume sauvegardé
         this.hitSound = this.sound.add('hit', { volume: this.settings.volume });
 
-        // Spawn d'ennemis toutes les secondes
+        // Spawn d'ennemis plus lent au début (premier niveau)
         this.time.addEvent({
-            delay: 1000,
+            delay: 1500, // Toutes les 1.5 secondes - moins overwhelming
             callback: this.spawnEnemy,
             callbackScope: this,
             loop: true
         });
 
-        // Texte Game Over (caché au début)
+        // UI - Game Over (caché initialement, fixé à la caméra, au-dessus de tout)
         this.gameOverText = this.add.text(480, 300, 'GAME OVER', {
             fontSize: '64px',
             fill: '#ff0000',
@@ -839,8 +878,21 @@ class GameScene extends Phaser.Scene {
             stroke: '#000000',
             strokeThickness: 6
         }).setOrigin(0.5).setVisible(false);
+        this.gameOverText.setScrollFactor(0);
+        this.gameOverText.setDepth(1000); // Z-index élevé
 
-        this.restartText = this.add.text(480, 400, 'Appuyez sur R pour recommencer\nou M pour le menu', {
+        this.gameStatsText = this.add.text(480, 380, '', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 4,
+            align: 'center'
+        }).setOrigin(0.5).setVisible(false);
+        this.gameStatsText.setScrollFactor(0);
+        this.gameStatsText.setDepth(1000);
+
+        this.restartText = this.add.text(480, 450, 'Appuyez sur R pour recommencer\nou M pour le menu', {
             fontSize: '24px',
             fill: '#ffffff',
             fontStyle: 'bold',
@@ -848,6 +900,8 @@ class GameScene extends Phaser.Scene {
             strokeThickness: 4,
             align: 'center'
         }).setOrigin(0.5).setVisible(false);
+        this.restartText.setScrollFactor(0);
+        this.restartText.setDepth(1000);
 
         // Touche R pour redémarrer
         this.input.keyboard.on('keydown-R', () => {
@@ -913,8 +967,8 @@ class GameScene extends Phaser.Scene {
 
         // Pas d'animation pour le fond (image statique)
 
-        // Tir automatique toutes les 200 ms
-        if (time - this.lastShotTime > 200) {
+        // Tir automatique TRÈS LENT - seulement toutes les 1.2 secondes
+        if (time - this.lastShotTime > 1200) {
             this.shoot();
             this.lastShotTime = time;
         }
@@ -957,13 +1011,13 @@ class GameScene extends Phaser.Scene {
             bullet = this.physics.add.sprite(this.player.x, this.player.y, `weapon_${this.settings.selectedWeapon}`);
             this.bullets.add(bullet);
         }
-        
+
         if (bullet) {
             bullet.setTexture(`weapon_${this.settings.selectedWeapon}`);
             bullet.setActive(true);
             bullet.setVisible(true);
             bullet.body.enable = true;
-            bullet.setScale(0.4); // Ajuster la taille des projectiles proportionnellement
+            bullet.setScale(0.4);
 
             let speed = 400;
             bullet.setVelocity(
@@ -976,55 +1030,38 @@ class GameScene extends Phaser.Scene {
     spawnEnemy() {
         if (this.gameOver) return;
 
-        // Spawn sur les bords de l'écran
-        let side = Phaser.Math.Between(0, 3);
-        let x, y;
-
-        switch (side) {
-            case 0: // Haut
-                x = Phaser.Math.Between(0, 960);
-                y = -32;
-                break;
-            case 1: // Droite
-                x = 992;
-                y = Phaser.Math.Between(0, 720);
-                break;
-            case 2: // Bas
-                x = Phaser.Math.Between(0, 960);
-                y = 752;
-                break;
-            case 3: // Gauche
-                x = -32;
-                y = Phaser.Math.Between(0, 720);
-                break;
-        }
+        // Spawn autour du joueur à distance visible (Brotato-style)
+        const spawnDistance = 600;
+        const spawnAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+        const x = this.player.x + Math.cos(spawnAngle) * spawnDistance;
+        const y = this.player.y + Math.sin(spawnAngle) * spawnDistance;
 
         let enemy = this.enemies.create(x, y, 'enemy');
-        enemy.setCollideWorldBounds(false);
-        enemy.setScale(0.8); // Augmenter la taille des ennemis pour qu'ils soient visibles
-        enemy.body.setSize(25, 25); // Ajuster la hitbox proportionnellement
+        enemy.setCollideWorldBounds(true);
+        enemy.setScale(0.3); // Minuscules
+        enemy.body.setSize(25, 25);
 
-        // Vitesse de l'ennemi vers le joueur (selon difficulté)
-        let baseSpeed = 80;
+        // Vitesse de l'ennemi RÉDUITE (Brotato commence facile)
+        let baseSpeed = 60; // Réduit de 80
         let difficultyMultiplier = 1;
-        
+
         switch (this.settings.difficulty) {
             case 'easy':
-                difficultyMultiplier = 0.7;
+                difficultyMultiplier = 0.5;
                 break;
             case 'normal':
-                difficultyMultiplier = 1.0;
+                difficultyMultiplier = 0.7;
                 break;
             case 'hard':
-                difficultyMultiplier = 1.5;
+                difficultyMultiplier = 1.0;
                 break;
         }
-        
-        let speed = (baseSpeed + (this.score * 0.5)) * difficultyMultiplier;
-        let angle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
+
+        let speed = (baseSpeed + (this.score * 0.3)) * difficultyMultiplier;
+        let enemyAngle = Phaser.Math.Angle.Between(x, y, this.player.x, this.player.y);
         enemy.setVelocity(
-            Math.cos(angle) * speed,
-            Math.sin(angle) * speed
+            Math.cos(enemyAngle) * speed,
+            Math.sin(enemyAngle) * speed
         );
     }
 
@@ -1042,6 +1079,21 @@ class GameScene extends Phaser.Scene {
         this.hitSound.setVolume(this.settings.volume);
         this.hitSound.play();
 
+        // Calculer les gains - RÉDUITS pour niveau 1
+        const expGained = Phaser.Math.Between(2, 5); // Réduit de 5-15
+        const goldGained = Phaser.Math.Between(1, 2); // Réduit de 1-5
+        this.totalExp += expGained;
+        this.totalGold += goldGained;
+
+        // Afficher texte flottant EXP (cyan)
+        this.showFloatingText(enemy.x - 15, enemy.y - 30, `+${expGained} EXP`, '#00ffff');
+        // Afficher texte flottant Gold (jaune)
+        this.showFloatingText(enemy.x + 15, enemy.y - 30, `+${goldGained} G`, '#ffff00');
+
+        // Mettre à jour l'UI
+        this.expText.setText('EXP: ' + this.totalExp);
+        this.goldText.setText('Gold: ' + this.totalGold);
+
         // Détruire l'ennemi
         enemy.destroy();
 
@@ -1051,8 +1103,8 @@ class GameScene extends Phaser.Scene {
     }
 
     hitPlayer(player, enemy) {
-        // Réduire la vie
-        player.health = (player.health || 100) - 10;
+        // Réduire la vie - RÉDUIT à 2 dégâts au lieu de 10 (vie max = 20)
+        player.health = (player.health || 20) - 2;
         if (player.health <= 0) {
             player.health = 0;
             this.endGame();
@@ -1078,12 +1130,12 @@ class GameScene extends Phaser.Scene {
                 Phaser.Math.Between(2, 5),
                 0xffaa00
             );
-            let angle = (Math.PI * 2 * i) / 8;
-            let speed = Phaser.Math.Between(50, 150);
+            let particleAngle = (Math.PI * 2 * i) / 8;
+            let particleSpeed = Phaser.Math.Between(50, 150);
             this.tweens.add({
                 targets: particle,
-                x: x + Math.cos(angle) * speed,
-                y: y + Math.sin(angle) * speed,
+                x: x + Math.cos(particleAngle) * particleSpeed,
+                y: y + Math.sin(particleAngle) * particleSpeed,
                 alpha: 0,
                 duration: 300,
                 onComplete: () => particle.destroy()
@@ -1092,9 +1144,9 @@ class GameScene extends Phaser.Scene {
     }
 
     updateHealthBar() {
-        let health = this.player.health || 100;
-        let healthPercent = Math.max(0, health / 100);
-        this.healthBar.width = 80 * healthPercent;
+        let health = this.player.health || 20;
+        let healthPercent = Math.max(0, health / 20); // Max 20 HP
+        this.healthBar.width = 100 * healthPercent; // Barre de 100px
 
         // Changer la couleur selon la vie
         if (healthPercent > 0.6) {
@@ -1106,10 +1158,38 @@ class GameScene extends Phaser.Scene {
         }
     }
 
+    showFloatingText(x, y, text, color) {
+        const floatingText = this.add.text(x, y, text, {
+            fontSize: '16px',
+            fill: color,
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5);
+
+        // Animation de montée et disparition
+        this.tweens.add({
+            targets: floatingText,
+            y: y - 50,
+            alpha: 0,
+            duration: 1000,
+            ease: 'Power2',
+            onComplete: () => floatingText.destroy()
+        });
+    }
+
     endGame() {
         this.gameOver = true;
         this.player.setVelocity(0, 0);
         this.gameOverText.setVisible(true);
+
+        // Afficher les statistiques
+        this.gameStatsText.setText(
+            `Score: ${this.score}\n` +
+            `EXP Totale: ${this.totalExp}\n` +
+            `Gold Total: ${this.totalGold}`
+        );
+        this.gameStatsText.setVisible(true);
         this.restartText.setVisible(true);
 
         // Arrêter tous les ennemis

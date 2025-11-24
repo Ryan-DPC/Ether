@@ -250,6 +250,7 @@ class LibraryService {
                     user_id: userIdObj,
                     game_id: gameObjectId,
                     game_key: gameKey,
+                    game_name: game.game_name, // Added missing required field
                     purchase_price: 0,
                     current_price: 0,
                     status: 'owned',
@@ -287,6 +288,7 @@ class LibraryService {
                 user_id: userIdObj,
                 game_id: gameObjectId,
                 game_key: gameKey,
+                game_name: game.game_name, // Added missing required field
                 purchase_price: gamePriceCHF,
                 current_price: gamePriceCHF,
                 status: 'owned',

@@ -45,6 +45,7 @@ class GameOwnershipService {
             const result = {
                 _id: docObj._id,
                 user_id: docObj.user_id,
+                seller_id: docObj.user_id, // Map user_id to seller_id for frontend compatibility
                 game_key: docObj.game_key,
                 game_name: docObj.game_name,
                 ownership_token: docObj.ownership_token,
@@ -138,6 +139,13 @@ class GameOwnershipService {
             throw new Error('Game is already listed for sale');
         }
 
+        // FIX: Ensure game_name is present before saving
+        if (!ownership.game_name) {
+            const Games = require('../games/games.model');
+            const gameDetails = await Games.getGameById(ownership.game_id) || await Games.getGameByName(ownership.game_key);
+            ownership.game_name = gameDetails ? gameDetails.game_name : `Game ${ownership.game_key}`;
+        }
+
         ownership.for_sale = true;
         ownership.asking_price = askingPrice;
         ownership.listed_at = new Date();
@@ -197,26 +205,31 @@ class GameOwnershipService {
      * Purchase a used game from marketplace
      */
     static async purchaseUsedGame(buyerId, ownershipToken, sellerId) {
-        const session = await GameOwnership.startSession();
-        session.startTransaction();
-
+        // Removed transaction for standalone MongoDB support
         try {
             // Find the listing
             const listing = await GameOwnership.findOne({
                 ownership_token: ownershipToken,
                 user_id: sellerId,
                 for_sale: true
-            }).session(session);
+            });
 
             if (!listing) {
                 throw new Error('Listing not found or no longer available');
+            }
+
+            // FIX: Ensure game_name is present for legacy listings
+            if (!listing.game_name) {
+                const Games = require('../games/games.model');
+                const gameDetails = await Games.getGameById(listing.game_id) || await Games.getGameByName(listing.game_key);
+                listing.game_name = gameDetails ? gameDetails.game_name : `Game ${listing.game_key}`;
             }
 
             // Check if buyer already owns this game
             const alreadyOwns = await GameOwnership.findOne({
                 user_id: buyerId,
                 game_key: listing.game_key
-            }).session(session);
+            });
 
             if (alreadyOwns) {
                 throw new Error('You already own this game');
@@ -241,8 +254,8 @@ class GameOwnershipService {
             }
 
             // Transfer funds
-            await Users.updateBalances(buyerId, { chf: -salePrice });
-            await Users.updateBalances(sellerId, { chf: sellerReceives });
+            await Users.decrementBalance(buyerId, 'CHF', salePrice);
+            await Users.incrementBalance(sellerId, 'CHF', sellerReceives);
 
             // Transfer ownership
             listing.user_id = buyerId;
@@ -252,10 +265,13 @@ class GameOwnershipService {
             listing.purchase_price = salePrice;
             listing.purchase_date = new Date();
             listing.installed = false;
-            await listing.save({ session });
+            listing.purchase_date = new Date();
+            listing.installed = false;
+            await listing.save();
 
-            await session.commitTransaction();
-            session.endSession();
+            // Transaction removed
+            // await session.commitTransaction();
+            // session.endSession();
 
             // Record transaction in Blockchain (outside of Mongo transaction)
             try {
@@ -265,6 +281,19 @@ class GameOwnershipService {
                 // 1. Transaction: Buyer -> Seller (Net Amount)
                 const txToSeller = new Transaction(buyerId, sellerId, sellerReceives, 'game_sale', listing.game_key);
                 etherBlockchain.createTransaction(txToSeller);
+
+                // Save to persistent DB
+                const BlockchainTx = require('../library/blockchainTx.model');
+                await BlockchainTx.create({
+                    transaction_id: txToSeller.transactionId,
+                    from_address: buyerId,
+                    to_address: sellerId,
+                    amount: sellerReceives,
+                    transaction_type: 'game_sale',
+                    game_id: listing.game_id,
+                    game_key: listing.game_key,
+                    ownership_token: listing.ownership_token
+                });
 
                 // 2. Transaction: Buyer -> Platform (Fee)
                 const txToPlatform = new Transaction(buyerId, 'PLATFORM_WALLET', platformFee, 'commission', listing.game_key);
@@ -292,8 +321,9 @@ class GameOwnershipService {
                 sellerReceives
             };
         } catch (error) {
-            await session.abortTransaction();
-            session.endSession();
+            // Transaction removed
+            // await session.abortTransaction();
+            // session.endSession();
             throw error;
         }
     }
@@ -352,22 +382,50 @@ class GameOwnershipService {
     /**
      * Get transaction history (simplified)
      */
+    /**
+     * Get transaction history (persistent)
+     */
     static async getTransactions(userId) {
-        // Get games purchased (not manual adds)
-        const purchases = await GameOwnership.find({
-            user_id: userId,
-            is_manual_add: false
-        }).sort({ purchase_date: -1 }).limit(50);
+        const BlockchainTx = require('../library/blockchainTx.model');
+        const Games = require('../games/games.model');
 
-        const populated = await this._populateGameDetails(purchases);
+        // Find all transactions where user is sender (seller) or receiver (buyer)
+        const transactions = await BlockchainTx.find({
+            $or: [
+                { from_address: userId },
+                { to_address: userId }
+            ]
+        }).sort({ timestamp: -1 }).limit(50).lean();
 
-        return populated.map(p => ({
-            id: p._id,
-            game_name: p.game_name,
-            type: 'purchase',
-            amount: p.purchase_price,
-            created_at: p.purchase_date
+        // Populate game names
+        const enrichedTransactions = await Promise.all(transactions.map(async (tx) => {
+            let gameName = 'Unknown Game';
+            if (tx.game_id) {
+                const game = await Games.getGameById(tx.game_id);
+                if (game) gameName = game.game_name;
+            } else if (tx.game_key) {
+                const game = await Games.getGameByName(tx.game_key);
+                if (game) gameName = game.game_name;
+            }
+
+            // Determine type relative to user
+            let type = 'unknown';
+            if (tx.transaction_type === 'game_purchase') {
+                type = 'purchase';
+            } else if (tx.transaction_type === 'game_sale') {
+                type = tx.from_address === userId ? 'sale' : 'purchase';
+            }
+
+            return {
+                id: tx._id,
+                game_name: gameName,
+                type: type,
+                amount: tx.amount,
+                created_at: tx.timestamp
+            };
         }));
+
+        return enrichedTransactions;
     }
 
     /**

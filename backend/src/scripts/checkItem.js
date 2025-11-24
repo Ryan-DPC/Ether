@@ -7,7 +7,7 @@ mongoose.connect(process.env.MONGO_URI).then(async () => {
     const GameOwnership = mongoose.connection.db.collection('gameownerships');
 
     // Find the item with this ownership_token
-    const token = 'd99d268c5d1fd79e61142362c78bf18e';
+    const token = '37bfeea0680c60e8ab9a203a4783df7d';
     const doc = await GameOwnership.findOne({ ownership_token: token });
 
     if (!doc) {
