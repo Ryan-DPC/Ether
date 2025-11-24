@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spud Blaster</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1b1f23;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #ffffff;
+            margin: 10px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        canvas {
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Spud Blaster</h1>
+        <div id="phaser-game"></div>
+    </div>
+    <script src="node_modules/phaser/dist/phaser.js"></script>
+    <script>
+        // Vérifier que Phaser est chargé
+        window.addEventListener('load', () => {
+            if (typeof Phaser === 'undefined') {
+                console.error('Phaser n\'est pas chargé !');
+                document.getElementById('phaser-game').innerHTML = '<p style="color: white; text-align: center; padding: 20px;">Erreur: Phaser n\'est pas chargé. Vérifiez que node_modules/phaser existe.</p>';
+            } else {
+                console.log('Phaser chargé:', Phaser.VERSION);
+            }
+        });
+    </script>
+    <script src="game.js"></script>
+</body>
+</html>
+

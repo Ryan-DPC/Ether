@@ -1,0 +1,19 @@
+{
+  "games": {
+    "dojo": {
+      "slug": "dojo",
+      "price": 5,
+      "enabled": true,
+      "gameName": "Dojo multiplayer 1vs1",
+      "firstSeen": "2025-11-13T10:08:39.000Z"
+    },
+    "spludbuster": {
+      "slug": "spludbuster",
+      "price": 5,
+      "enabled": true,
+      "gameName": "Splud Buster",
+      "firstSeen": "2025-11-13T10:08:39.001Z"
+    }
+  },
+  "lastUpdated": "2025-11-13T10:08:39.001Z"
+}
