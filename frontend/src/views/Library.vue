@@ -102,7 +102,7 @@ onMounted(async () => {
     // Check installation status for all games
     const checkInstallations = async () => {
       const installPath = localStorage.getItem('etherInstallPath')
-      if (!installPath) return
+      if (!installPath || !window.electronAPI) return
 
       for (const game of gameStore.myGames) {
         if (game.folder_name) {
@@ -114,6 +114,7 @@ onMounted(async () => {
         }
       }
     }
+
     
     // Run check when games are loaded
     watch(() => gameStore.myGames, () => {
@@ -226,15 +227,38 @@ const installGame = async (gameId: string, gameName: string) => {
   }
 }
 
-const launchGame = (folderName: string) => {
-  // In Electron, we could launch the executable directly
-  // For now, just show an alert or open folder
-  if (window.electronAPI) {
-    alert(`Lancement de ${folderName}... (Fonctionnalité à venir)`)
-  } else {
+const launchGame = async (folderName: string) => {
+  if (!window.electronAPI) {
+    // Fallback for web version - open in new tab
     window.open(`/games/${folderName}`, '_blank')
+    return
+  }
+
+  try {
+    // Get install path from localStorage
+    const installPath = localStorage.getItem('etherInstallPath')
+    
+    if (!installPath) {
+      alert('Chemin d\'installation non configuré. Veuillez réinstaller le jeu.')
+      return
+    }
+
+    // Launch the game via Electron
+    const result = await window.electronAPI.launchGame(installPath, folderName)
+    
+    if (result.success) {
+      // Show success notification
+      new Notification('Ether Desktop', {
+        body: `🎮 ${result.message}`,
+        silent: false
+      })
+    }
+  } catch (error: any) {
+    console.error('Launch error:', error)
+    alert(`Erreur lors du lancement: ${error.message || 'Erreur inconnue'}`)
   }
 }
+
 </script>
 
 <template>

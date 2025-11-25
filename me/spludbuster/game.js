@@ -808,9 +808,9 @@ class GameScene extends Phaser.Scene {
         // Collisions ennemi ↔ joueur
         this.physics.add.overlap(this.enemies, this.player, this.hitPlayer, null, this);
 
-        // UI - Score (coin supérieur gauche - ajusté pour zoom 0.6)
-        this.scoreText = this.add.text(15, 15, 'Score: 0', {
-            fontSize: '18px',
+        // UI - Score (coin supérieur gauche)
+        this.scoreText = this.add.text(10, 10, 'Score: 0', {
+            fontSize: '30px', // Augmenté pour compenser le zoom 0.6
             fill: '#ffffff',
             fontStyle: 'bold',
             stroke: '#000000',
@@ -819,19 +819,19 @@ class GameScene extends Phaser.Scene {
         this.scoreText.setScrollFactor(0); // Fixer à la caméra
         this.scoreText.setDepth(100);
 
-        // UI - Barre de vie (coin supérieur droit - ajustée pour zoom)
-        this.healthBarBg = this.add.rectangle(835, 25, 100, 20, 0x333333);
+        // UI - Barre de vie (coin supérieur droit)
+        this.healthBarBg = this.add.rectangle(845, 20, 100, 20, 0x333333);
         this.healthBarBg.setOrigin(0, 0.5);
         this.healthBarBg.setScrollFactor(0);
         this.healthBarBg.setDepth(100);
 
-        this.healthBar = this.add.rectangle(835, 25, 100, 20, 0x00ff00);
+        this.healthBar = this.add.rectangle(845, 20, 100, 20, 0x00ff00);
         this.healthBar.setOrigin(0, 0.5);
         this.healthBar.setScrollFactor(0);
         this.healthBar.setDepth(100);
 
-        this.healthText = this.add.text(755, 25, 'Vie', {
-            fontSize: '16px',
+        this.healthText = this.add.text(775, 20, 'Vie', {
+            fontSize: '26px', // Augmenté pour compenser le zoom
             fill: '#ffffff',
             fontStyle: 'bold'
         }).setOrigin(0, 0.5);
@@ -839,8 +839,8 @@ class GameScene extends Phaser.Scene {
         this.healthText.setDepth(100);
 
         // UI - Affichage EXP et Gold (espacés et mieux positionnés)
-        this.expText = this.add.text(15, 45, 'EXP: 0', {
-            fontSize: '16px',
+        this.expText = this.add.text(10, 50, 'EXP: 0', {
+            fontSize: '26px', // Augmenté pour compenser le zoom
             fill: '#00ffff',
             fontStyle: 'bold',
             stroke: '#000000',
@@ -849,8 +849,8 @@ class GameScene extends Phaser.Scene {
         this.expText.setScrollFactor(0);
         this.expText.setDepth(100);
 
-        this.goldText = this.add.text(15, 75, 'Gold: 0', {
-            fontSize: '16px',
+        this.goldText = this.add.text(10, 90, 'Gold: 0', {
+            fontSize: '26px', // Augmenté pour compenser le zoom
             fill: '#ffff00',
             fontStyle: 'bold',
             stroke: '#000000',

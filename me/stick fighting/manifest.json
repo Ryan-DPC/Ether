@@ -1,9 +1,9 @@
 {
-  "gameId": "spludbuster",
-  "gameName": "Splud Buster",
-  "version": "1.0.1",
+  "gameId": "stick-fighting",
+  "gameName": "Stick Fighting",
+  "version": "1.0.0",
   "developer": "MiniGames Studio",
-  "description": "Splud Buster",
+  "description": "Stick Fighting",
   "genre": "Multiplayer",
   "platform": "exe",
   "entryPoint": "index.html",
@@ -22,6 +22,6 @@
   "price": 0,
   "requiresAuth": true,
   "requiresNetwork": true,
-  "authEndpoint": "/api/games/spludbuster/auth",
+  "authEndpoint": "/api/games/stick-fighting/auth",
   "updatedAt": "2025-01-30T00:00:00.000Z"
 }

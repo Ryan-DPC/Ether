@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     checkGameInstalled: (installPath, gameFolderName) => ipcRenderer.invoke('installation:check', { installPath, gameFolderName }),
     uninstallGame: (installPath, gameFolderName) => ipcRenderer.invoke('installation:uninstall', { installPath, gameFolderName }),
 
+    // Game Launcher
+    launchGame: (installPath, gameFolderName) => ipcRenderer.invoke('game:launch', { installPath, gameFolderName }),
+    getActiveGames: () => ipcRenderer.invoke('game:getActive'),
+    closeGame: (gameId) => ipcRenderer.invoke('game:close', gameId),
+
     // Platform info
     platform: process.platform,
 

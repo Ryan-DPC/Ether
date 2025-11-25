@@ -183,3 +183,31 @@ ipcMain.handle('installation:check', async (event, { installPath, gameFolderName
 ipcMain.handle('installation:uninstall', async (event, { installPath, gameFolderName }) => {
     return await installationService.uninstallGame(installPath, gameFolderName);
 });
+
+// ========================================
+// Game Launcher IPC Handlers
+// ========================================
+const launcherService = require('./services/launcher.service');
+
+// Launch a game
+ipcMain.handle('game:launch', async (event, { installPath, gameFolderName }) => {
+    try {
+        console.log('[IPC] Launching game:', gameFolderName);
+        const result = await launcherService.launchGame(installPath, gameFolderName);
+        return result;
+    } catch (error) {
+        console.error('[IPC] Failed to launch game:', error);
+        throw error;
+    }
+});
+
+// Get active games
+ipcMain.handle('game:getActive', () => {
+    return launcherService.getActiveGames();
+});
+
+// Close a running game
+ipcMain.handle('game:close', (event, gameId) => {
+    return launcherService.closeGame(gameId);
+});
+

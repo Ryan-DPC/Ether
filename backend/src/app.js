@@ -26,6 +26,7 @@ const devGamesRoutes = require('./features/dev-games/dev-games.routes');
 const gameCategoriesRoutes = require('./features/game-categories/game-categories.routes');
 const gameOwnershipRoutes = require('./features/game-ownership/game-ownership.routes');
 const installationRoutes = require('./features/installation/installation.routes');
+const stickArenaRoutes = require('./features/stick-arena/stick-arena.routes');
 
 const app = express();
 
@@ -55,6 +56,9 @@ app.use(generalLimiter);
 app.use(sanitizerMiddleware);
 app.use(xssCleanMiddleware);
 
+// Serve static files for stick fighting game
+app.use(express.static(require('path').join(__dirname, '../../me/stick fighting')));
+
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', usersRoutes);
@@ -69,6 +73,8 @@ app.use('/api/dev-games', devGamesRoutes);
 app.use('/api/game-categories', gameCategoriesRoutes);
 app.use('/api/game-ownership', gameOwnershipRoutes);
 app.use('/api/installation', installationRoutes);
+app.use('/api/stick-arena', stickArenaRoutes);
+
 
 // Health Check
 app.get('/api/ping', (req, res) => {
