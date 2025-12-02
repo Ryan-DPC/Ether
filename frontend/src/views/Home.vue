@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useGameStore } from '../stores/gameStore'
+import { useRouter } from 'vue-router'
 import defaultGameImg from '@/assets/images/default-game.png'
 import heroBg from '@/assets/images/hero-bg.jpg'
 
+const router = useRouter()
 const gameStore = useGameStore()
 const searchQuery = ref('')
 const activeCategory = ref('trending')
@@ -38,6 +40,10 @@ let slideInterval: any = null
 
 const nextSlide = () => {
   currentSlide.value = (currentSlide.value + 1) % slides.length
+}
+
+const goToGameDetails = (gameId: string) => {
+  router.push({ name: 'game-details', params: { id: gameId } })
 }
 
 const prevSlide = () => {
@@ -154,7 +160,7 @@ const categories = [
             <div class="card-image">
               <img :src="game.image_url || defaultGameImg" alt="Game">
               <div class="card-overlay">
-                <button class="btn-view">VIEW DETAILS</button>
+                <button class="btn-view" @click="goToGameDetails(game.id)">VIEW DETAILS</button>
               </div>
             </div>
             <div class="card-info">

@@ -13,14 +13,47 @@ const newFriendUsername = ref('')
 const isAddingFriend = ref(false)
 const errorMessage = ref('')
 
+// New state for toggles
+const showAddFriendInput = ref(false)
+const showFilterMenu = ref(false)
+const currentFilter = ref<'all' | 'online' | 'in-game'>('all')
+
 onMounted(async () => {
   await friendsStore.fetchFriends()
   await friendsStore.fetchFriendRequests()
 })
 
 const filteredFriends = computed(() => {
-  return friendsStore.friends
+  let friends = friendsStore.friends
+  
+  if (currentFilter.value === 'online') {
+    friends = friends.filter(f => f.status === 'online' || f.status === 'in-game')
+  } else if (currentFilter.value === 'in-game') {
+    friends = friends.filter(f => f.status === 'in-game')
+  }
+  
+  return friends
 })
+
+const toggleAddFriend = () => {
+  showAddFriendInput.value = !showAddFriendInput.value
+  if (showAddFriendInput.value) {
+    showFilterMenu.value = false // Close other menu
+    setTimeout(() => document.getElementById('friend-input')?.focus(), 100)
+  }
+}
+
+const toggleFilterMenu = () => {
+  showFilterMenu.value = !showFilterMenu.value
+  if (showFilterMenu.value) {
+    showAddFriendInput.value = false // Close other menu
+  }
+}
+
+const setFilter = (filter: 'all' | 'online' | 'in-game') => {
+  currentFilter.value = filter
+  showFilterMenu.value = false
+}
 
 async function addFriend() {
   if (!newFriendUsername.value.trim()) return
@@ -32,6 +65,7 @@ async function addFriend() {
     await friendsStore.sendFriendRequest(newFriendUsername.value.trim())
     newFriendUsername.value = ''
     alert('Demande d\'ami envoyée !')
+    showAddFriendInput.value = false
   } catch (error: any) {
     errorMessage.value = error.message || 'Erreur lors de l\'envoi'
   } finally {
@@ -95,8 +129,67 @@ function closePopup() {
     <div class="friends-popup">
       <!-- Header -->
       <div class="popup-header">
-        <h2>👥 Amis</h2>
-        <button class="close-btn" @click="closePopup">✕</button>
+        <h2>Social</h2>
+        <div class="header-actions">
+          <button 
+            class="icon-btn" 
+            :class="{ active: showAddFriendInput }"
+            @click="toggleAddFriend" 
+            title="Ajouter un ami"
+          >
+            <i class="fas fa-user-plus"></i>
+          </button>
+          <button 
+            class="icon-btn" 
+            :class="{ active: showFilterMenu }"
+            @click="toggleFilterMenu" 
+            title="Filtrer"
+          >
+            <i class="fas fa-cog"></i> <!-- Using cog as requested for settings/filter -->
+          </button>
+        </div>
+      </div>
+
+      <!-- Add Friend Input (Collapsible) -->
+      <div v-if="showAddFriendInput" class="collapsible-section">
+        <div class="add-friend-form">
+          <input 
+            id="friend-input"
+            v-model="newFriendUsername" 
+            type="text" 
+            placeholder="Pseudo..."
+            @keyup.enter="addFriend"
+            class="neon-input"
+          >
+          <button @click="addFriend" :disabled="isAddingFriend" class="neon-btn-small">
+            OK
+          </button>
+        </div>
+        <p v-if="errorMessage" class="error-msg">{{ errorMessage }}</p>
+      </div>
+
+      <!-- Filter Menu (Collapsible) -->
+      <div v-if="showFilterMenu" class="collapsible-section">
+        <div class="filter-options">
+          <button 
+            :class="['filter-btn', { active: currentFilter === 'all' }]" 
+            @click="setFilter('all')"
+          >
+            Tous
+          </button>
+          <button 
+            :class="['filter-btn', { active: currentFilter === 'online' }]" 
+            @click="setFilter('online')"
+          >
+            En ligne
+          </button>
+          <button 
+            :class="['filter-btn', { active: currentFilter === 'in-game' }]" 
+            @click="setFilter('in-game')"
+          >
+            En jeu
+          </button>
+        </div>
       </div>
 
       <!-- Tabs -->
@@ -114,21 +207,6 @@ function closePopup() {
           Demandes ({{ friendsStore.friendRequests.length }})
         </button>
       </div>
-
-      <!-- Add Friend Form -->
-      <div class="add-friend-section">
-        <input 
-          v-model="newFriendUsername" 
-          type="text" 
-          placeholder="Nom d'utilisateur..."
-          @keyup.enter="addFriend"
-          class="add-friend-input"
-        >
-        <button @click="addFriend" :disabled="isAddingFriend" class="add-btn">
-          {{ isAddingFriend ? '...' : '➕ Ajouter' }}
-        </button>
-      </div>
-      <p v-if="errorMessage" class="error-msg">{{ errorMessage }}</p>
 
       <!-- Friends List Tab -->
       <div v-if="activeTab === 'friends'" class="content-section">
@@ -236,20 +314,28 @@ function closePopup() {
   bottom: 0;
   background: rgba(0, 0, 0, 0.7);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-end;
   z-index: 9999;
+  padding: 80px 20px 20px;
 }
 
 .friends-popup {
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: rgba(26, 26, 26, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  width: 400px;
-  max-height: 600px;
+  width: 350px;
+  max-height: calc(100vh - 100px);
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .popup-header {
@@ -257,36 +343,115 @@ function closePopup() {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .popup-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.2rem;
   color: #fff;
+  font-weight: 700;
 }
 
-.close-btn {
-  background: none;
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.icon-btn {
+  background: transparent;
   border: none;
   color: #999;
-  font-size: 24px;
+  font-size: 1.1rem;
   cursor: pointer;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: all 0.2s;
+  padding: 5px;
+  border-radius: 4px;
 }
 
-.close-btn:hover {
+.icon-btn:hover, .icon-btn.active {
   color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.collapsible-section {
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  animation: expand 0.2s ease-out;
+}
+
+@keyframes expand {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.add-friend-form {
+  display: flex;
+  gap: 10px;
+}
+
+.neon-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.neon-input:focus {
+  border-color: #7afcff;
+}
+
+.neon-btn-small {
+  background: #7afcff;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  padding: 0 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.neon-btn-small:hover {
+  background: #fff;
+}
+
+.filter-options {
+  display: flex;
+  gap: 8px;
+}
+
+.filter-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #999;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.filter-btn.active {
+  background: rgba(122, 252, 255, 0.1);
+  border-color: #7afcff;
+  color: #7afcff;
 }
 
 .tabs {
   display: flex;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .tab {
@@ -298,67 +463,18 @@ function closePopup() {
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
+  border-bottom: 2px solid transparent;
 }
 
 .tab.active {
-  color: #4a9eff;
-  border-bottom: 2px solid #4a9eff;
-}
-
-.add-friend-section {
-  display: flex;
-  gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid #333;
-}
-
-.add-friend-input {
-  flex: 1;
-  padding: 8px 12px;
-  background: #252525;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #fff;
-  font-size: 14px;
-}
-
-.add-friend-input:focus {
-  outline: none;
-  border-color: #4a9eff;
-}
-
-.add-btn {
-  padding: 8px 16px;
-  background: #4a9eff;
-  border: none;
-  border-radius: 6px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.add-btn:hover:not(:disabled) {
-  background: #3a8eef;
-}
-
-.add-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.error-msg {
-  color: #ff4444;
-  font-size: 12px;
-  padding: 0 12px;
-  margin: 0;
+  color: #7afcff;
+  border-bottom-color: #7afcff;
 }
 
 .content-section {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px;
 }
 
 .empty-state {
@@ -377,14 +493,14 @@ function closePopup() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px;
-  background: #252525;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
   transition: background 0.2s;
 }
 
 .friend-item:hover {
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .friend-info {
@@ -395,8 +511,8 @@ function closePopup() {
 
 .friend-avatar {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
 }
 
 .friend-avatar img {
@@ -410,8 +526,8 @@ function closePopup() {
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 2px solid #1a1a1a;
 }
@@ -419,7 +535,6 @@ function closePopup() {
 .friend-details {
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
 .friend-name {
@@ -429,24 +544,24 @@ function closePopup() {
 }
 
 .friend-status {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
 }
 
 .friend-actions {
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
 .action-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  background: #333;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -456,36 +571,24 @@ function closePopup() {
 }
 
 .action-btn:hover {
-  background: #444;
+  background: rgba(255, 255, 255, 0.2);
   transform: scale(1.1);
 }
 
-.join-btn:hover {
-  background: #00aa00;
+.error-msg {
+  color: #ff4444;
+  font-size: 12px;
+  padding: 0 15px 10px;
+  margin: 0;
 }
 
-.invite-btn:hover {
-  background: #4a9eff;
-}
-
-.chat-btn {
-  background: #4a9eff;
-}
-
-.chat-btn:hover {
-  background: #3a8eef;
-}
-
-.remove-btn:hover {
-  background: #ff4444;
-}
-
+/* Request Item Styles */
 .request-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  background: #252525;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;
 }
 
@@ -496,23 +599,13 @@ function closePopup() {
   flex: 1;
   text-decoration: none;
   color: inherit;
-  transition: opacity 0.2s;
-  cursor: pointer;
-}
-
-.request-link:hover {
-  opacity: 0.7;
 }
 
 .request-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
-}
-
-.request-info {
-  flex: 1;
 }
 
 .request-username {
@@ -522,7 +615,7 @@ function closePopup() {
 }
 
 .request-date {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
 }
 
@@ -532,33 +625,33 @@ function closePopup() {
 }
 
 .accept-btn, .reject-btn {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   border: none;
-  border-radius: 6px;
-  font-size: 18px;
+  border-radius: 4px;
+  font-size: 14px;
   font-weight: bold;
   cursor: pointer;
-  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .accept-btn {
-  background: #00aa00;
-  color: #fff;
+  background: rgba(0, 170, 0, 0.2);
+  color: #00ff00;
 }
 
 .accept-btn:hover {
-  background: #00cc00;
-  transform: scale(1.1);
+  background: rgba(0, 170, 0, 0.4);
 }
 
 .reject-btn {
-  background: #aa0000;
-  color: #fff;
+  background: rgba(170, 0, 0, 0.2);
+  color: #ff4444;
 }
 
 .reject-btn:hover {
-  background: #cc0000;
-  transform: scale(1.1);
+  background: rgba(170, 0, 0, 0.4);
 }
 </style>

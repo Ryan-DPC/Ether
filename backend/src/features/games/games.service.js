@@ -26,7 +26,7 @@ class GamesService {
 
                     return {
                         id: game.folder_name,
-                        name: game.game_name || game.folder_name,
+                        game_name: game.game_name || game.folder_name,
                         slug: game.folder_name,
                         description: game.description || '',
                         image_url: game.image_url,
@@ -48,7 +48,7 @@ class GamesService {
                 const baseUrl = process.env.API_URL || 'http://localhost:3001';
                 mappedGames.push({
                     id: 'ether-chess',
-                    name: 'Ether Chess',
+                    game_name: 'Ether Chess',
                     slug: 'ether-chess',
                     description: 'A classic chess game for Ether.',
                     image_url: `${baseUrl}/public/games/etherchess.png`,
@@ -67,7 +67,7 @@ class GamesService {
                 const baseUrl = process.env.API_URL || 'http://localhost:3001';
                 mappedGames.push({
                     id: 'blackjack',
-                    name: 'Blackjack',
+                    game_name: 'Blackjack',
                     slug: 'blackjack',
                     description: 'Classic casino card game.',
                     image_url: `${baseUrl}/public/games/blackjack.png`, // Assuming image exists or will be handled
@@ -85,10 +85,6 @@ class GamesService {
             console.error('Error in GamesService.getAllGames :', err);
             throw new Error('Error fetching games from Cloudinary.');
         }
-    }
-
-    static async addGame(game) {
-        return await Games.addGame(game);
     }
 
     static async getGameByName(idOrName) {

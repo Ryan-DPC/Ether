@@ -167,9 +167,85 @@ const logout = () => {
 }
 
 /* Keep existing burger menu styles but ensure they fit the theme */
+/* Dropdown Menu (formerly burger-menu) */
 .burger-menu {
-  background: var(--bg-secondary);
-  border: 1px solid var(--glass-border);
+  position: absolute;
+  top: 60px;
+  right: 0;
+  width: 220px;
+  background: rgba(30, 25, 40, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 100;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.burger-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.burger-header strong {
   color: var(--text-primary);
+  font-size: 1.1rem;
+  display: block;
+}
+
+.burger-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.burger-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.burger-link {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.burger-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--text-primary);
+}
+
+.burger-link.danger {
+  border-color: rgba(255, 71, 87, 0.3);
+  color: #ff4757;
+}
+
+.burger-link.danger:hover {
+  background: rgba(255, 71, 87, 0.1);
+  border-color: #ff4757;
 }
 </style>

@@ -19,6 +19,13 @@ const pathSelector = ref<InstanceType<typeof InstallPathSelector> | null>(null)
 const searchQuery = ref('')
 const filterStatus = ref('all') // 'all', 'installed', 'favorites'
 
+// Social Sidebar State
+const newFriendUsername = ref('')
+const isAddingFriend = ref(false)
+const showAddFriendInput = ref(false)
+const showFilterMenu = ref(false)
+const currentFriendFilter = ref<'all' | 'online' | 'in-game'>('all')
+
 // Installation state
 const installingGameId = ref<string | null>(null)
 const runningGameId = ref<string | null>(null)
@@ -109,6 +116,18 @@ const featuredLibrary = computed(() => {
     return gameStore.myGames.slice(0, 4)
 })
 
+const filteredFriends = computed(() => {
+  let friends = friendsStore.friends
+  
+  if (currentFriendFilter.value === 'online') {
+    friends = friends.filter(f => f.status === 'online' || f.status === 'in-game')
+  } else if (currentFriendFilter.value === 'in-game') {
+    friends = friends.filter(f => f.status === 'in-game')
+  }
+  
+  return friends
+})
+
 // Actions
 const handleAddGame = async () => {
   try {
@@ -192,6 +211,43 @@ const launchGame = async (folderName: string) => {
     await window.electronAPI.launchGame(installPath, folderName, userData)
   } catch (error: any) {
     alert(`Launch error: ${error.message}`)
+  }
+}
+
+// Social Actions
+const toggleAddFriend = () => {
+  showAddFriendInput.value = !showAddFriendInput.value
+  if (showAddFriendInput.value) {
+    showFilterMenu.value = false
+    setTimeout(() => document.getElementById('lib-friend-input')?.focus(), 100)
+  }
+}
+
+const toggleFilterMenu = () => {
+  showFilterMenu.value = !showFilterMenu.value
+  if (showFilterMenu.value) {
+    showAddFriendInput.value = false
+  }
+}
+
+const setFriendFilter = (filter: 'all' | 'online' | 'in-game') => {
+  currentFriendFilter.value = filter
+  showFilterMenu.value = false
+}
+
+const addFriend = async () => {
+  if (!newFriendUsername.value.trim()) return
+  
+  isAddingFriend.value = true
+  try {
+    await friendsStore.sendFriendRequest(newFriendUsername.value.trim())
+    newFriendUsername.value = ''
+    alert('Request sent!')
+    showAddFriendInput.value = false
+  } catch (error: any) {
+    alert(error.message || 'Error sending request')
+  } finally {
+    isAddingFriend.value = false
   }
 }
 </script>
@@ -284,8 +340,45 @@ const launchGame = async (folderName: string) => {
         <div class="sidebar-header">
             <h3>Social</h3>
             <div class="sidebar-actions">
-                <button title="Add Friend"><i class="fas fa-user-plus"></i></button>
-                <button title="Settings"><i class="fas fa-cog"></i></button>
+                <button 
+                  class="icon-btn" 
+                  :class="{ active: showAddFriendInput }"
+                  @click="toggleAddFriend" 
+                  title="Add Friend"
+                >
+                  <i class="fas fa-user-plus"></i>
+                </button>
+                <button 
+                  class="icon-btn" 
+                  :class="{ active: showFilterMenu }"
+                  @click="toggleFilterMenu" 
+                  title="Filter"
+                >
+                  <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Add Friend Input -->
+        <div v-if="showAddFriendInput" class="sidebar-collapsible">
+            <div class="add-friend-row">
+                <input 
+                  id="lib-friend-input"
+                  v-model="newFriendUsername" 
+                  placeholder="Username..." 
+                  @keyup.enter="addFriend"
+                  class="sidebar-input"
+                >
+                <button @click="addFriend" :disabled="isAddingFriend" class="sidebar-btn-small">OK</button>
+            </div>
+        </div>
+
+        <!-- Filter Menu -->
+        <div v-if="showFilterMenu" class="sidebar-collapsible">
+            <div class="filter-row">
+                <button :class="['filter-pill', { active: currentFriendFilter === 'all' }]" @click="setFriendFilter('all')">All</button>
+                <button :class="['filter-pill', { active: currentFriendFilter === 'online' }]" @click="setFriendFilter('online')">Online</button>
+                <button :class="['filter-pill', { active: currentFriendFilter === 'in-game' }]" @click="setFriendFilter('in-game')">In-Game</button>
             </div>
         </div>
 
@@ -300,7 +393,7 @@ const launchGame = async (folderName: string) => {
             </div>
             
             <template v-else>
-                <div v-for="friend in friendsStore.friends" :key="friend.id" class="friend-item">
+                <div v-for="friend in filteredFriends" :key="friend.id" class="friend-item">
                     <div class="friend-avatar">
                         <img :src="friend.profile_pic || 'https://via.placeholder.com/40'" alt="Avatar">
                         <div class="status-dot" :class="friend.status"></div>
@@ -515,8 +608,37 @@ const launchGame = async (folderName: string) => {
 }
 .sidebar-actions button {
     background: none; border: none; color: #b0b9c3; cursor: pointer; margin-left: 10px;
+    padding: 5px; border-radius: 4px; transition: all 0.2s;
 }
-.sidebar-actions button:hover { color: white; }
+.sidebar-actions button:hover, .sidebar-actions button.active { 
+    color: white; background: rgba(255,255,255,0.1);
+}
+
+.sidebar-collapsible {
+    padding: 10px 20px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    animation: expand 0.2s ease-out;
+}
+
+.add-friend-row { display: flex; gap: 8px; }
+.sidebar-input {
+    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px; padding: 6px 10px; color: white; font-size: 0.9rem;
+}
+.sidebar-input:focus { border-color: #7afcff; outline: none; }
+.sidebar-btn-small {
+    background: #7afcff; color: #120c18; border: none; border-radius: 4px;
+    padding: 0 12px; font-weight: bold; cursor: pointer;
+}
+
+.filter-row { display: flex; gap: 5px; }
+.filter-pill {
+    flex: 1; background: transparent; border: 1px solid rgba(255,255,255,0.1);
+    color: #999; padding: 4px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+}
+.filter-pill:hover { color: white; background: rgba(255,255,255,0.05); }
+.filter-pill.active { border-color: #7afcff; color: #7afcff; background: rgba(122, 252, 255, 0.1); }
 
 .search-friends {
     margin: 0 20px 20px; position: relative;
