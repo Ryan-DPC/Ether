@@ -3,6 +3,7 @@ import { RouterView } from 'vue-router'
 import Header from '@/components/Header.vue'
 import Sidebar from '@/components/Sidebar.vue'
 import FriendsPopup from '@/components/FriendsPopup.vue'
+import NotificationPopup from '@/components/NotificationPopup.vue'
 import { useUserStore } from '@/stores/userStore'
 
 const userStore = useUserStore()
@@ -24,6 +25,7 @@ const userStore = useUserStore()
       </main>
       
       <FriendsPopup v-if="userStore.isAuthenticated" />
+      <NotificationPopup v-if="userStore.isAuthenticated" />
     </div>
   </div>
 </template>

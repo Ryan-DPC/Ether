@@ -2,11 +2,11 @@
 import { ref, computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/userStore'
-import { useFriendsStore } from '@/stores/friendsStore'
+import { useNotificationStore } from '@/stores/notificationStore'
 
 const route = useRoute()
 const userStore = useUserStore()
-const friendsStore = useFriendsStore()
+const notificationStore = useNotificationStore()
 
 const isGamePage = computed(() => route.meta.isGamePage)
 const activeTab = computed(() => route.name)
@@ -23,8 +23,8 @@ const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value
 }
 
-const toggleFriendsMenu = () => {
-  friendsStore.togglePopup()
+const toggleNotifications = () => {
+  notificationStore.togglePopup()
 }
 
 const logout = () => {
@@ -43,8 +43,9 @@ const logout = () => {
           <div class="profile-row">
             <span class="user-username">{{ userStore.user.username }}</span>
             
-            <button @click="toggleFriendsMenu" class="icon-btn" aria-label="Amis">
-              <i class="fas fa-bell"></i> <!-- Notification placeholder -->
+            <button @click="toggleNotifications" class="icon-btn" aria-label="Notifications">
+              <i class="fas fa-bell"></i>
+              <span v-if="notificationStore.unreadCount > 0" class="notification-badge"></span>
             </button>
             
             <button @click.stop="toggleMenu" class="icon-btn" aria-label="Menu utilisateur">
@@ -139,10 +140,22 @@ const logout = () => {
   cursor: pointer;
   padding: 5px;
   transition: color 0.2s;
+  position: relative;
 }
 
 .icon-btn:hover {
   color: var(--text-primary);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  background: #ff7eb3;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
 }
 
 .header-avatar {

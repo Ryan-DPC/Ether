@@ -101,15 +101,16 @@ const categories = [
             <button class="carousel-nav prev" @click="prevSlide"><i class="fas fa-chevron-left"></i></button>
             <button class="carousel-nav next" @click="nextSlide"><i class="fas fa-chevron-right"></i></button>
             
-            <div class="carousel-dots">
-              <button 
-                v-for="(slide, index) in slides" 
-                :key="slide.id" 
-                class="dot" 
-                :class="{ active: currentSlide === index }"
-                @click="setSlide(index)"
-              ></button>
-            </div>
+          </div>
+          
+          <div class="carousel-dots">
+            <button 
+              v-for="(slide, index) in slides" 
+              :key="slide.id" 
+              class="dot" 
+              :class="{ active: currentSlide === index }"
+              @click="setSlide(index)"
+            ></button>
           </div>
         </section>
 
@@ -328,15 +329,23 @@ const categories = [
   background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
   color: white; width: 40px; height: 40px; border-radius: 50%;
   cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateY(-50%) scale(0.9);
 }
-.carousel-nav:hover { background: #ff7eb3; border-color: #ff7eb3; }
+.carousel-container:hover .carousel-nav {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+.carousel-nav:hover { background: #ff7eb3; border-color: #ff7eb3; transform: translateY(-50%) scale(1.1) !important; }
 .carousel-nav.prev { left: 20px; }
 .carousel-nav.next { right: 20px; }
 
 .carousel-dots {
-  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 10px; z-index: 10;
+  display: flex; 
+  gap: 10px; 
+  justify-content: center;
+  margin-top: 20px;
 }
 .dot {
   width: 10px; height: 10px; border-radius: 50%;

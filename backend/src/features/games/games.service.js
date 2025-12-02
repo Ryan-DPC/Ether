@@ -6,39 +6,42 @@ class GamesService {
         try {
             const cloudinaryService = new CloudinaryService();
 
-            if (!cloudinaryService.isEnabled()) {
-                console.warn('[Games] Cloudinary is disabled. No games will be listed.');
-                return [];
+            let mappedGames = [];
+
+            if (cloudinaryService.isEnabled()) {
+                console.log('[Games] Fetching games from Cloudinary (Source of Truth)...');
+                const cloudGames = await cloudinaryService.getAllGames();
+
+                // Map Cloudinary results to Game objects
+                mappedGames = cloudGames.map(game => {
+                    let downloadUrl = game.zipUrl;
+
+                    // OVERRIDE: Serve Ether Chess locally due to Cloudinary 10MB limit
+                    if (game.folder_name === 'ether-chess') {
+                        const baseUrl = process.env.API_URL || 'http://localhost:3001';
+                        downloadUrl = `${baseUrl}/public/games/etherchess.zip`;
+                        game.image_url = `${baseUrl}/public/games/etherchess.png`;
+                        console.log('[Games] Overriding URLs for Ether Chess to local');
+                    }
+
+                    return {
+                        id: game.folder_name,
+                        name: game.game_name || game.folder_name,
+                        slug: game.folder_name,
+                        description: game.description || '',
+                        image_url: game.image_url,
+                        downloadUrl: downloadUrl,
+                        version: game.version || '1.0.0',
+                        isMultiplayer: game.is_multiplayer || false,
+                        price: game.price || 0,
+                        genre: game.genre || 'Undefined'
+                    };
+                });
+            } else {
+                console.warn('[Games] Cloudinary is disabled. Serving local games only.');
             }
 
-            console.log('[Games] Fetching games from Cloudinary (Source of Truth)...');
-            const cloudGames = await cloudinaryService.getAllGames();
-
-            // Map Cloudinary results to Game objects
-            const mappedGames = cloudGames.map(game => {
-                let downloadUrl = game.zipUrl;
-
-                // OVERRIDE: Serve Ether Chess locally due to Cloudinary 10MB limit
-                if (game.folder_name === 'ether-chess') {
-                    const baseUrl = process.env.API_URL || 'http://localhost:3001';
-                    downloadUrl = `${baseUrl}/public/games/etherchess.zip`;
-                    game.image_url = `${baseUrl}/public/games/etherchess.png`;
-                    console.log('[Games] Overriding URLs for Ether Chess to local');
-                }
-
-                return {
-                    id: game.folder_name,
-                    name: game.game_name || game.folder_name,
-                    slug: game.folder_name,
-                    description: game.description || '',
-                    logoUrl: game.image_url,
-                    downloadUrl: downloadUrl,
-                    version: game.version || '1.0.0',
-                    isMultiplayer: game.is_multiplayer || false
-                };
-            });
-
-            // HYBRID INJECTION: Ensure Ether Chess exists even if not on Cloudinary
+            // HYBRID INJECTION: Ensure Ether Chess exists
             const etherChessExists = mappedGames.some(g => g.slug === 'ether-chess');
             if (!etherChessExists) {
                 console.log('[Games] Injecting local Ether Chess into game list');
@@ -48,10 +51,31 @@ class GamesService {
                     name: 'Ether Chess',
                     slug: 'ether-chess',
                     description: 'A classic chess game for Ether.',
-                    logoUrl: `${baseUrl}/public/games/default-game.png`,
+                    image_url: `${baseUrl}/public/games/etherchess.png`,
                     downloadUrl: `${baseUrl}/public/games/etherchess.zip`,
                     version: '1.0.0',
-                    isMultiplayer: false
+                    isMultiplayer: true,
+                    price: 0,
+                    genre: 'Strategy'
+                });
+            }
+
+            // HYBRID INJECTION: Ensure Blackjack exists
+            const blackjackExists = mappedGames.some(g => g.slug === 'blackjack');
+            if (!blackjackExists) {
+                console.log('[Games] Injecting local Blackjack into game list');
+                const baseUrl = process.env.API_URL || 'http://localhost:3001';
+                mappedGames.push({
+                    id: 'blackjack',
+                    name: 'Blackjack',
+                    slug: 'blackjack',
+                    description: 'Classic casino card game.',
+                    image_url: `${baseUrl}/public/games/blackjack.png`, // Assuming image exists or will be handled
+                    downloadUrl: `${baseUrl}/public/games/blackjack.zip`,
+                    version: '1.0.0',
+                    isMultiplayer: false,
+                    price: 0,
+                    genre: 'Card'
                 });
             }
 
