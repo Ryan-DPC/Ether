@@ -1,0 +1,573 @@
+<script setup lang="ts">
+import { ref, onMounted, computed } from 'vue'
+import { useGameStore } from '../stores/gameStore'
+import { useCategoryStore } from '../stores/categoryStore'
+import { useFriendsStore } from '../stores/friendsStore'
+import { useUserStore } from '../stores/userStore'
+import axios from 'axios'
+import InstallPathSelector from '../components/InstallPathSelector.vue'
+import defaultGameImg from '@/assets/images/default-game.png'
+
+const gameStore = useGameStore()
+const categoryStore = useCategoryStore()
+const friendsStore = useFriendsStore()
+
+const showAddGameModal = ref(false)
+const newGameKey = ref('')
+const newGameName = ref('')
+const pathSelector = ref<InstanceType<typeof InstallPathSelector> | null>(null)
+const searchQuery = ref('')
+const filterStatus = ref('all') // 'all', 'installed', 'favorites'
+
+// Installation state
+const installingGameId = ref<string | null>(null)
+const runningGameId = ref<string | null>(null)
+const installProgress = ref({
+  progress: 0,
+  speed: '',
+  downloaded: '',
+  total: '',
+  eta: '',
+  type: 'download'
+})
+
+onMounted(async () => {
+  await gameStore.fetchMyGames()
+  await categoryStore.fetchCategories()
+  await friendsStore.fetchFriends()
+
+  // Setup Electron listeners
+  if (window.electronAPI) {
+    window.electronAPI.onInstallProgress((data: any) => {
+      if (installingGameId.value) {
+        installProgress.value = {
+          progress: data.progress,
+          speed: data.speed || '',
+          downloaded: data.downloaded || '',
+          total: data.total || '',
+          eta: data.eta || '',
+          type: data.type || 'download'
+        }
+      }
+    })
+
+    window.electronAPI.onInstallComplete(async (data: any) => {
+      try {
+        await axios.post('/installation/status', {
+          gameId: data.gameId,
+          status: 'installed',
+          path: data.path
+        })
+        
+        const game = gameStore.myGames.find((g: any) => (g._id === data.gameId || g.folder_name === data.gameId))
+        if (game) {
+          game.installed = true
+          game.status = 'installed'
+        }
+
+        new Notification('Ether Desktop', { body: `✅ ${data.gameName} installed successfully!` })
+        installingGameId.value = null
+        await gameStore.fetchMyGames()
+      } catch (error) {
+        console.error('Failed to sync installation status:', error)
+      }
+    })
+
+    window.electronAPI.onGameStatus((data: any) => {
+        if (data.status === 'running') {
+            runningGameId.value = data.folderName
+        } else if (data.status === 'stopped') {
+            runningGameId.value = null
+        }
+    })
+  }
+})
+
+// Computed Properties
+const filteredGames = computed(() => {
+  let games = gameStore.myGames || []
+  
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    games = games.filter((g: any) => g.game_name.toLowerCase().includes(query))
+  }
+
+  if (filterStatus.value === 'installed') {
+    games = games.filter((g: any) => g.installed)
+  }
+
+  return games
+})
+
+const recentlyPlayed = computed(() => {
+  // Mock logic: take first 3 installed games or just first 3
+  return gameStore.myGames.filter((g: any) => g.installed).slice(0, 3)
+})
+
+const featuredLibrary = computed(() => {
+    // Mock logic: random selection or specific tag
+    return gameStore.myGames.slice(0, 4)
+})
+
+// Actions
+const handleAddGame = async () => {
+  try {
+    const response = await axios.post('/game-ownership/redeem-key', {
+        key: newGameKey.value,
+        gameName: newGameName.value
+    })
+    
+    if (response.status === 200 || response.status === 201) {
+      alert('Game added successfully!')
+      showAddGameModal.value = false
+      newGameKey.value = ''
+      newGameName.value = ''
+      await gameStore.fetchHomeData()
+    } else {
+      alert(response.data.message || 'Error adding game')
+    }
+  } catch (error: any) {
+    alert(error.response?.data?.message || 'Network error')
+  }
+}
+
+const installGame = async (game: any) => {
+  if (!confirm(`Install ${game.game_name}?`)) return
+
+  try {
+    if (!window.electronAPI) {
+      alert('Installation requires Electron app')
+      return
+    }
+
+    let installPath = localStorage.getItem('etherInstallPath')
+    if (!installPath) {
+      const selectedPath = await pathSelector.value?.show()
+      installPath = selectedPath || null
+      if (!installPath) return
+      localStorage.setItem('etherInstallPath', installPath)
+    }
+
+    const gameId = game._id || game.folder_name
+    const result = await window.electronAPI.installGame(
+      game.zipUrl,
+      installPath,
+      game.folder_name || gameId,
+      gameId,
+      game.game_name,
+      game.version || '1.0.0'
+    )
+
+    if (result.success) {
+      installingGameId.value = gameId
+      installProgress.value = {
+        progress: 0,
+        speed: '0 MB/s',
+        downloaded: '0 MB',
+        total: '...',
+        eta: '...',
+        type: 'download'
+      }
+    }
+  } catch (error: any) {
+    alert(error.message || 'Installation error')
+  }
+}
+
+const launchGame = async (folderName: string) => {
+  if (!window.electronAPI) return
+
+  try {
+    const installPath = localStorage.getItem('etherInstallPath')
+    if (!installPath) {
+      alert('Install path not configured.')
+      return
+    }
+
+    const userStore = useUserStore()
+    const token = localStorage.getItem('token')
+    const plainUser = userStore.user ? JSON.parse(JSON.stringify(userStore.user)) : null;
+    
+    const userData = { user: plainUser, token: token }
+    await window.electronAPI.launchGame(installPath, folderName, userData)
+  } catch (error: any) {
+    alert(`Launch error: ${error.message}`)
+  }
+}
+</script>
+
+<template>
+  <div class="library-layout">
+    <!-- Main Content -->
+    <div class="main-content">
+        
+        <!-- Header -->
+        <div class="library-header">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input v-model="searchQuery" placeholder="Search your games...">
+            </div>
+            <div class="filters">
+                <button :class="{ active: filterStatus === 'all' }" @click="filterStatus = 'all'">All Games</button>
+                <button :class="{ active: filterStatus === 'installed' }" @click="filterStatus = 'installed'">Installed</button>
+                <button class="btn-icon" @click="showAddGameModal = true" title="Redeem Key"><i class="fas fa-key"></i></button>
+            </div>
+        </div>
+
+        <div class="scroll-area">
+            
+            <!-- Recently Played -->
+            <section v-if="recentlyPlayed.length > 0" class="section">
+                <h3><i class="fas fa-clock"></i> Recently Played</h3>
+                <div class="recent-row">
+                    <div v-for="game in recentlyPlayed" :key="game._id" class="recent-card">
+                        <div class="recent-bg" :style="{ backgroundImage: `url(${game.image_url || defaultGameImg})` }"></div>
+                        <div class="recent-content">
+                            <img :src="game.image_url || defaultGameImg" class="recent-logo">
+                            <div class="recent-info">
+                                <h4>{{ game.game_name }}</h4>
+                                <span class="status-text">Ready to Play</span>
+                            </div>
+                            <button @click="launchGame(game.folder_name)" class="btn-play-sm">
+                                <i class="fas fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Featured / Favorites -->
+            <section v-if="featuredLibrary.length > 0" class="section">
+                <h3><i class="fas fa-star"></i> Featured</h3>
+                <div class="featured-row">
+                    <div v-for="game in featuredLibrary" :key="game._id" class="feat-card">
+                        <img :src="game.image_url || defaultGameImg">
+                        <div class="feat-overlay">
+                            <h4>{{ game.game_name }}</h4>
+                            <button v-if="game.installed" @click="launchGame(game.folder_name)" class="btn-action">PLAY</button>
+                            <button v-else @click="installGame(game)" class="btn-action install">INSTALL</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- All Games Grid -->
+            <section class="section">
+                <h3><i class="fas fa-th"></i> All Games Filtered</h3>
+                <div class="games-grid">
+                    <div v-for="game in filteredGames" :key="game._id" class="grid-card">
+                        <div class="card-poster">
+                            <img :src="game.image_url || defaultGameImg">
+                            <div class="poster-overlay">
+                                <div v-if="installingGameId === (game._id || game.folder_name)" class="install-status">
+                                    <i class="fas fa-spinner fa-spin"></i> {{ installProgress.progress }}%
+                                </div>
+                                <button v-else-if="game.installed" @click="launchGame(game.folder_name)" class="btn-grid-play"><i class="fas fa-play"></i></button>
+                                <button v-else @click="installGame(game)" class="btn-grid-install"><i class="fas fa-download"></i></button>
+                            </div>
+                        </div>
+                        <div class="card-details">
+                            <h4>{{ game.game_name }}</h4>
+                            <div class="card-badges">
+                                <span v-if="game.installed" class="badge-installed">INSTALLED</span>
+                                <span class="badge-genre">{{ game.genre || 'Game' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Right Sidebar: Friends -->
+    <div class="friends-sidebar">
+        <div class="sidebar-header">
+            <h3>Social</h3>
+            <div class="sidebar-actions">
+                <button title="Add Friend"><i class="fas fa-user-plus"></i></button>
+                <button title="Settings"><i class="fas fa-cog"></i></button>
+            </div>
+        </div>
+
+        <div class="search-friends">
+            <i class="fas fa-search"></i>
+            <input placeholder="Search friends...">
+        </div>
+
+        <div class="friends-list">
+            <div v-if="friendsStore.loading" class="loading-friends">
+                <i class="fas fa-circle-notch fa-spin"></i>
+            </div>
+            
+            <template v-else>
+                <div v-for="friend in friendsStore.friends" :key="friend.id" class="friend-item">
+                    <div class="friend-avatar">
+                        <img :src="friend.profile_pic || 'https://via.placeholder.com/40'" alt="Avatar">
+                        <div class="status-dot" :class="friend.status"></div>
+                    </div>
+                    <div class="friend-info">
+                        <div class="friend-name">{{ friend.username }}</div>
+                        <div class="friend-status">{{ friend.status }}</div>
+                    </div>
+                    <button class="btn-msg"><i class="fas fa-comment"></i></button>
+                </div>
+                
+                <div v-if="friendsStore.friends.length === 0" class="empty-friends">
+                    No friends online
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div v-if="showAddGameModal" class="modal-overlay" @click.self="showAddGameModal = false">
+      <div class="modal-glass">
+        <h3>Redeem Game Key</h3>
+        <input v-model="newGameKey" placeholder="XXXX-XXXX-XXXX" class="glass-input">
+        <input v-model="newGameName" placeholder="Game Name (Optional)" class="glass-input">
+        <button @click="handleAddGame" class="btn-neon full-width">Redeem</button>
+      </div>
+    </div>
+
+    <InstallPathSelector ref="pathSelector" />
+  </div>
+</template>
+
+<style scoped>
+.library-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    height: 100%;
+    background: #120c18;
+    color: white;
+    overflow: hidden;
+}
+
+/* Main Content */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.library-header {
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(18, 12, 24, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 10;
+}
+
+.search-bar {
+    position: relative;
+    width: 300px;
+}
+.search-bar input {
+    width: 100%;
+    padding: 10px 10px 10px 35px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: white;
+}
+.search-bar i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #b0b9c3;
+}
+
+.filters { display: flex; gap: 10px; }
+.filters button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #b0b9c3;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.filters button:hover, .filters button.active {
+    background: rgba(122, 252, 255, 0.1);
+    border-color: #7afcff;
+    color: #7afcff;
+}
+
+.scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+}
+.scroll-area::-webkit-scrollbar { width: 6px; }
+.scroll-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+.section { margin-bottom: 40px; }
+.section h3 {
+    font-size: 1.1rem; color: #b0b9c3; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+}
+
+/* Recently Played */
+.recent-row {
+    display: flex; gap: 20px; overflow-x: auto; padding-bottom: 10px;
+}
+.recent-card {
+    min-width: 300px; height: 160px;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: transform 0.2s;
+}
+.recent-card:hover { transform: translateY(-4px); border-color: #ff7eb3; }
+
+.recent-bg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover; background-position: center;
+    filter: brightness(0.4);
+}
+.recent-content {
+    position: relative; z-index: 2;
+    height: 100%; padding: 20px;
+    display: flex; align-items: center; gap: 15px;
+}
+.recent-logo { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+.recent-info { flex: 1; }
+.recent-info h4 { margin: 0; font-size: 1.1rem; }
+.status-text { font-size: 0.8rem; color: #7afcff; }
+.btn-play-sm {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #ff7eb3; border: none; color: white;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 10px rgba(255, 126, 179, 0.4);
+}
+
+/* Featured Row */
+.featured-row { display: flex; gap: 15px; }
+.feat-card {
+    width: 180px; height: 240px;
+    border-radius: 12px; overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.feat-card img { width: 100%; height: 100%; object-fit: cover; }
+.feat-overlay {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    padding: 15px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    transform: translateY(100%); transition: transform 0.3s;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.feat-card:hover .feat-overlay { transform: translateY(0); }
+.btn-action {
+    background: #ff7eb3; border: none; color: white;
+    padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 700;
+}
+.btn-action.install { background: #7afcff; color: #120c18; }
+
+/* Grid */
+.games-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px;
+}
+.grid-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px; padding: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: all 0.2s;
+}
+.grid-card:hover { background: rgba(255,255,255,0.08); transform: translateY(-4px); }
+
+.card-poster {
+    height: 200px; border-radius: 8px; overflow: hidden; position: relative; margin-bottom: 10px;
+}
+.card-poster img { width: 100%; height: 100%; object-fit: cover; }
+.poster-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+}
+.grid-card:hover .poster-overlay { opacity: 1; }
+
+.btn-grid-play, .btn-grid-install {
+    width: 50px; height: 50px; border-radius: 50%;
+    border: none; font-size: 1.2rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+.btn-grid-play { background: #ff7eb3; color: white; box-shadow: 0 0 15px rgba(255, 126, 179, 0.5); }
+.btn-grid-install { background: #7afcff; color: #120c18; box-shadow: 0 0 15px rgba(122, 252, 255, 0.5); }
+
+.card-details h4 { margin: 0 0 6px 0; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-badges { display: flex; gap: 6px; font-size: 0.7rem; }
+.badge-installed { color: #7afcff; background: rgba(122, 252, 255, 0.1); padding: 2px 6px; border-radius: 4px; }
+.badge-genre { color: #b0b9c3; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; }
+
+/* Sidebar */
+.friends-sidebar {
+    background: rgba(18, 12, 24, 0.6);
+    border-left: 1px solid rgba(255,255,255,0.05);
+    display: flex; flex-direction: column;
+}
+.sidebar-header {
+    padding: 20px; display: flex; justify-content: space-between; align-items: center;
+}
+.sidebar-actions button {
+    background: none; border: none; color: #b0b9c3; cursor: pointer; margin-left: 10px;
+}
+.sidebar-actions button:hover { color: white; }
+
+.search-friends {
+    margin: 0 20px 20px; position: relative;
+}
+.search-friends input {
+    width: 100%; padding: 8px 10px 8px 30px;
+    background: rgba(255,255,255,0.05); border: none; border-radius: 6px; color: white;
+}
+.search-friends i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #555; }
+
+.friends-list { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
+.friend-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px; border-radius: 8px;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+.friend-item:hover { background: rgba(255,255,255,0.05); }
+
+.friend-avatar { position: relative; width: 36px; height: 36px; }
+.friend-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.status-dot {
+    position: absolute; bottom: 0; right: 0; width: 10px; height: 10px;
+    border-radius: 50%; border: 2px solid #120c18;
+}
+.status-dot.online { background: #00ff00; }
+.status-dot.offline { background: #555; }
+.status-dot.in-game { background: #ff7eb3; }
+
+.friend-info { flex: 1; overflow: hidden; }
+.friend-name { font-weight: 600; font-size: 0.9rem; }
+.friend-status { font-size: 0.75rem; color: #777; }
+
+.btn-msg { background: none; border: none; color: #b0b9c3; cursor: pointer; opacity: 0; transition: opacity 0.2s; }
+.friend-item:hover .btn-msg { opacity: 1; }
+
+/* Modals */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.8); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-glass {
+  background: #1e1928; padding: 30px; border-radius: 16px; width: 400px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.glass-input {
+  width: 100%; padding: 12px; margin-bottom: 15px;
+  background: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 8px; color: white;
+}
+.btn-neon {
+  background: #ff7eb3; color: white; padding: 12px; border: none; border-radius: 8px; width: 100%; font-weight: 700; cursor: pointer;
+}
+</style>

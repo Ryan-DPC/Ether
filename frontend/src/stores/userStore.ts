@@ -1,0 +1,81 @@
+import { defineStore } from 'pinia'
+import axios from 'axios'
+import { socketService } from '../services/socket'
+
+export const useUserStore = defineStore('user', {
+    state: () => ({
+        user: null as any,
+        isAuthenticated: false,
+        isLoading: false,
+        friendRequests: [] as any[],
+        friends: [] as any[]
+    }),
+    actions: {
+        async fetchProfile() {
+            this.isLoading = true
+            try {
+                const response = await axios.get('/users/me')
+                if (response.data && response.data.user) {
+                    this.user = response.data.user
+                    this.isAuthenticated = true
+                } else {
+                    this.isAuthenticated = false
+                    this.user = null
+                }
+            } catch (error) {
+                console.error('Failed to fetch profile:', error)
+                this.isAuthenticated = false
+                this.user = null
+                throw error
+            } finally {
+                this.isLoading = false
+            }
+        },
+        async login(identifier: string, password: string) {
+            this.isLoading = true
+            try {
+                const response = await axios.post('/auth/login', { username: identifier, password })
+                if (response.data && response.data.token) {
+                    localStorage.setItem('token', response.data.token)
+                    this.isAuthenticated = true
+
+                    // Fetch user profile
+                    await this.fetchProfile()
+
+                    // Connect WebSocket after successful login
+                    console.log('🔌 Connecting to WebSocket...')
+                    socketService.connect(response.data.token)
+                }
+            } catch (error) {
+                console.error('Login failed:', error)
+                throw error
+            } finally {
+                this.isLoading = false
+            }
+        },
+        initializeAuth() {
+            // Token is automatically handled by axios interceptors
+            // Just check if token exists for initial WebSocket connection
+            const token = localStorage.getItem('token')
+            if (token) {
+                console.log('🔌 Connecting to WebSocket (initializeAuth)...')
+                socketService.connect(token)
+            }
+            return !!token
+        },
+        logout() {
+            localStorage.removeItem('token')
+            this.user = null
+            this.isAuthenticated = false
+            this.friends = []
+            this.friendRequests = []
+
+            // Disconnect WebSocket
+            console.log('🔌 Disconnecting WebSocket...')
+            socketService.disconnect()
+
+            // Force reload to clear any other state or redirect
+            window.location.href = '/login'
+        }
+    }
+})
