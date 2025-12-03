@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useItemStore } from '../stores/itemStore'
+import { useUserStore } from '../stores/userStore'
 
 const itemStore = useItemStore()
+const userStore = useUserStore()
 const typeFilter = ref('')
 const rarityFilter = ref('')
 
@@ -87,7 +89,7 @@ const equipItem = async (itemId: string) => {
         <div class="content-header">
           <h1>Featured Items</h1>
           <div class="balance-display">
-            <i class="fas fa-coins"></i> 1,250 Tokens
+            <i class="fas fa-coins"></i> {{ userStore.user?.tokens?.toLocaleString() || 0 }} Tokens
           </div>
         </div>
 
@@ -146,7 +148,7 @@ const equipItem = async (itemId: string) => {
 .store-container {
   height: 100%; width: 100%;
   position: relative; overflow: hidden;
-  background-color: #120c18; color: white;
+  background-color: transparent; color: white;
   padding: 20px;
 }
 

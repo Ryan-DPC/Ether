@@ -25,6 +25,8 @@ const isAddingFriend = ref(false)
 const showAddFriendInput = ref(false)
 const showFilterMenu = ref(false)
 const currentFriendFilter = ref<'all' | 'online' | 'in-game'>('all')
+import { useChatStore } from '@/stores/chatStore'
+const chatStore = useChatStore()
 
 // Installation state
 const installingGameId = ref<string | null>(null)
@@ -112,8 +114,8 @@ const recentlyPlayed = computed(() => {
 })
 
 const featuredLibrary = computed(() => {
-    // Mock logic: random selection or specific tag
-    return gameStore.myGames.slice(0, 4)
+    // Only show games marked as favorite
+    return gameStore.myGames.filter((g: any) => g.favorite)
 })
 
 const filteredFriends = computed(() => {
@@ -301,7 +303,9 @@ const addFriend = async () => {
                         <div class="feat-overlay">
                             <h4>{{ game.game_name }}</h4>
                             <button v-if="game.installed" @click="launchGame(game.folder_name)" class="btn-action">PLAY</button>
-                            <button v-else @click="installGame(game)" class="btn-action install">INSTALL</button>
+                            <button v-else @click="installGame(game)" class="btn-action install-icon" title="Install">
+                                <i class="fas fa-download"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -402,7 +406,7 @@ const addFriend = async () => {
                         <div class="friend-name">{{ friend.username }}</div>
                         <div class="friend-status">{{ friend.status }}</div>
                     </div>
-                    <button class="btn-msg"><i class="fas fa-comment"></i></button>
+                    <button class="btn-msg" @click.stop="chatStore.openChat(friend)"><i class="fas fa-comment"></i></button>
                 </div>
                 
                 <div v-if="friendsStore.friends.length === 0" class="empty-friends">
@@ -431,7 +435,7 @@ const addFriend = async () => {
     display: grid;
     grid-template-columns: 1fr 300px;
     height: 100%;
-    background: #120c18;
+    background: transparent;
     color: white;
     overflow: hidden;
 }
@@ -559,6 +563,13 @@ const addFriend = async () => {
     padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 700;
 }
 .btn-action.install { background: #7afcff; color: #120c18; }
+.btn-action.install-icon { 
+    background: #7afcff; color: #120c18; 
+    width: 32px; height: 32px; 
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    padding: 0;
+}
 
 /* Grid */
 .games-grid {

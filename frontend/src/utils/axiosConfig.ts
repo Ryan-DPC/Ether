@@ -7,7 +7,7 @@ axios.defaults.headers.common['Content-Type'] = 'application/json'
 // Request interceptor - automatically add Authorization header
 axios.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token')
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token')
         if (token) {
             config.headers.Authorization = `Bearer ${token}`
         }
@@ -39,6 +39,7 @@ axios.interceptors.response.use(
         if (error.response?.status === 401) {
             console.warn('⚠️ Unauthorized access, redirecting to login...')
             localStorage.removeItem('token')
+            sessionStorage.removeItem('token')
             window.location.href = '/login'
         }
 

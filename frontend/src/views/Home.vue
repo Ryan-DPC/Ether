@@ -46,6 +46,24 @@ const goToGameDetails = (gameId: string) => {
   router.push({ name: 'game-details', params: { id: gameId } })
 }
 
+const handlePlayNow = (slide: any) => {
+  // Extract main title part (before colon or newline)
+  const title = slide.title.split(':')[0].split('\n')[0].trim().toLowerCase()
+  
+  // Find matching game in store
+  const game = gameStore.games.find((g: any) => 
+    g.game_name.toLowerCase().includes(title) || 
+    title.includes(g.game_name.toLowerCase())
+  )
+
+  if (game) {
+    goToGameDetails(game._id || game.id)
+  } else {
+    // Optional: Show a toast or alert
+    alert('This game is coming soon!')
+  }
+}
+
 const prevSlide = () => {
   currentSlide.value = (currentSlide.value - 1 + slides.length) % slides.length
 }
@@ -95,7 +113,7 @@ const categories = [
                     <h1>{{ slide.title }}</h1>
                     <p>{{ slide.desc }}</p>
                     <div class="hero-actions">
-                      <button class="btn-neon btn-play">PLAY NOW</button>
+                      <button class="btn-neon btn-play" @click="handlePlayNow(slide)">PLAY NOW</button>
                       <button class="btn-glass">WATCH TRAILER</button>
                     </div>
                   </div>
@@ -123,14 +141,17 @@ const categories = [
         <!-- Discover Section -->
         <section class="discover-section">
           <div class="section-header">
-            <h2>DISCOVER</h2>
+            <h2>
+              <img src="@/assets/images/sakura-branch.png" alt="Sakura" class="title-decoration">
+              DISCOVER
+            </h2>
           </div>
 
           <!-- Search & Filter -->
           <div class="filter-bar">
-            <div class="search-wrapper">
+            <div class="search-input">
               <i class="fas fa-search search-icon"></i>
-              <input v-model="searchQuery" type="text" placeholder="Search games..." class="search-input">
+              <input v-model="searchQuery" type="text" placeholder="Search games...">
             </div>
             
             <div class="categories-row">
@@ -377,7 +398,15 @@ const categories = [
 }
 .section-header h2 {
   font-size: 1.5rem; letter-spacing: 2px; margin: 0;
-  color: white; font-weight: 700;
+  color: #ff7eb3; font-weight: 700;
+  display: flex; align-items: center; gap: 15px;
+}
+
+.title-decoration {
+  height: 40px;
+  width: auto;
+  mix-blend-mode: lighten; /* Attempt to hide dark background */
+  filter: brightness(1.2) contrast(1.1); /* Enhance visibility */
 }
 
 .filter-bar {
@@ -390,27 +419,40 @@ const categories = [
   margin: 0 auto; /* Center the whole block */
 }
 
-.search-wrapper {
-  position: relative;
-  width: 100%; /* Match the width of the filters */
-}
-
 .search-input {
-  width: 100%;
-  padding: 14px 45px;
+  position: relative;
+  width: 80%;
+  margin: 0 auto;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
-  color: white; font-size: 1rem;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
 }
-.search-input:focus {
-  outline: none; border-color: #7afcff;
+
+.search-input:focus-within {
   background: rgba(255,255,255,0.1);
+  border-color: #7afcff;
   box-shadow: 0 0 20px rgba(122, 252, 255, 0.1);
 }
 
-.search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #b0b9c3; }
+.search-input input {
+  width: 100%;
+  padding: 14px 14px 14px 45px;
+  background: transparent;
+  border: none;
+  color: white; 
+  font-size: 1rem;
+  outline: none;
+}
+
+.search-icon { 
+  position: absolute; 
+  left: 16px; 
+  color: #b0b9c3; 
+  pointer-events: none;
+}
 
 .categories-row { 
   display: flex; 
@@ -431,10 +473,14 @@ const categories = [
 }
 
 .cat-pill:hover, .cat-pill.active {
-  background: rgba(122, 252, 255, 0.1);
-  border-color: #7afcff;
-  color: #7afcff;
-  box-shadow: 0 0 15px rgba(122, 252, 255, 0.1);
+  background: transparent;
+  border-color: #ff7eb3;
+  color: white;
+  box-shadow: 0 0 15px rgba(255, 126, 179, 0.1);
+}
+
+.cat-pill:hover i, .cat-pill.active i {
+  color: #ff7eb3;
 }
 
 /* Games Grid */
@@ -493,12 +539,12 @@ const categories = [
 
 .btn-view {
   background: transparent;
-  border: 1px solid #7afcff; color: #7afcff;
+  border: 1px solid #ff7eb3; color: #ff7eb3;
   padding: 10px 24px; border-radius: 30px;
   font-weight: 700; cursor: pointer;
   transition: all 0.3s;
 }
-.btn-view:hover { background: #7afcff; color: #120c18; box-shadow: 0 0 20px rgba(122, 252, 255, 0.4); }
+.btn-view:hover { background: #ff7eb3; color: white; box-shadow: 0 0 20px rgba(255, 126, 179, 0.4); }
 
 .card-info { padding: 20px; flex: 1; display: flex; flex-direction: column; }
 .card-info h3 { margin: 0 0 10px 0; font-size: 1.1rem; color: white; }
@@ -511,7 +557,7 @@ const categories = [
     font-size: 0.8rem; color: #b0b9c3; 
     background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px;
 }
-.price { color: #7afcff; font-weight: 700; }
+.price { color: #ff7eb3; font-weight: 700; }
 .price.free { color: #ff7eb3; }
 
 </style>

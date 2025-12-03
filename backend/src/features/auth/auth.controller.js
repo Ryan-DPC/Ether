@@ -3,7 +3,7 @@ const AuthService = require('./auth.service');
 class AuthController {
     static async register(req, res) {
         try {
-            const { user, token } = await AuthService.registerUser(req.body);
+            const { user, token } = await AuthService.registerUser({ ...req.body, file: req.file });
             res.status(201).json({ success: true, token, user });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message, code: 'REGISTRATION_FAILED' });

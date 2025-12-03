@@ -1,12 +1,19 @@
 const Users = require('../users/user.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const CloudinaryService = require('../../services/cloudinary.service');
 
 class AuthService {
-    static async registerUser({ username, email, password }) {
-        const existingUser = await Users.getUserByUsername(username);
+    static async registerUser({ username, email, password, file, tag }) {
+        if (!tag || !/^[a-zA-Z0-9]{4}$/.test(tag)) {
+            throw new Error('Le tag doit être composé de 4 caractères alphanumériques.');
+        }
+
+        const fullUsername = `${username}#${tag}`;
+
+        const existingUser = await Users.getUserByUsername(fullUsername);
         if (existingUser) {
-            throw new Error('Le nom d\'utilisateur est déjà utilisé.');
+            throw new Error('Ce nom d\'utilisateur avec ce tag est déjà pris.');
         }
 
         const existingEmail = await Users.getUserByEmail(email);
@@ -14,7 +21,16 @@ class AuthService {
             throw new Error('L\'email est déjà utilisé.');
         }
 
-        const newUser = await Users.createUser({ username, email, password });
+        let profile_pic = null;
+        if (file) {
+            const cloudinaryService = new CloudinaryService();
+            if (cloudinaryService.isEnabled()) {
+                const result = await cloudinaryService.uploadBuffer(file.buffer, `users/${username}/profile_pic`);
+                profile_pic = result.url;
+            }
+        }
+
+        const newUser = await Users.createUser({ username: fullUsername, email, password, profile_pic });
 
         const token = jwt.sign(
             { id: newUser.id, username: newUser.username, isAdmin: false },
@@ -25,8 +41,14 @@ class AuthService {
         return { user: newUser, token };
     }
 
-    static async login(username, password) {
-        const user = await Users.getUserByUsername(username);
+    static async login(identifier, password) {
+        let user;
+        if (identifier.includes('@')) {
+            user = await Users.getUserByEmail(identifier);
+        } else {
+            user = await Users.getUserByUsername(identifier);
+        }
+
         if (!user) throw new Error('Utilisateur non trouvé.');
 
         const isPasswordValid = await bcrypt.compare(password, user.password);

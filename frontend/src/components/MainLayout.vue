@@ -24,6 +24,8 @@ const userStore = useUserStore()
         <RouterView />
       </main>
       
+
+
       <FriendsPopup v-if="userStore.isAuthenticated" />
       <NotificationPopup v-if="userStore.isAuthenticated" />
     </div>
@@ -35,7 +37,7 @@ const userStore = useUserStore()
   display: flex;
   height: 100vh;
   width: 100vw;
-  background: var(--bg-primary);
+  background: transparent;
   overflow: hidden;
   position: relative;
 }

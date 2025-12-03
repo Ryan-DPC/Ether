@@ -21,7 +21,7 @@ class SocketService {
         console.log('🔌 Connecting to socket with token:', token.substring(0, 10) + '...')
         this.socket = io(socketUrl, {
             auth: {
-                token: `Bearer ${token}` // Try adding Bearer prefix here too
+                token: token
             },
             extraHeaders: {
                 Authorization: `Bearer ${token}`

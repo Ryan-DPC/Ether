@@ -1,0 +1,18 @@
+
+/* Global Transitions */
+.chat-pop-enter-active,
+.chat-pop-leave-active {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.chat-pop-enter-from,
+.chat-pop-leave-to {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+}
+
+.chat-pop-enter-to,
+.chat-pop-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}

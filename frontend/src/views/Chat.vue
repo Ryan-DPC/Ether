@@ -216,7 +216,7 @@ const formatTime = (date: string) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #1a1a1a;
+  background: transparent;
   color: #fff;
 }
 

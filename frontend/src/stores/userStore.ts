@@ -31,12 +31,21 @@ export const useUserStore = defineStore('user', {
                 this.isLoading = false
             }
         },
-        async login(identifier: string, password: string) {
+        async login(identifier: string, password: string, remember: boolean = false) {
             this.isLoading = true
             try {
                 const response = await axios.post('/auth/login', { username: identifier, password })
                 if (response.data && response.data.token) {
-                    localStorage.setItem('token', response.data.token)
+                    const token = response.data.token
+
+                    if (remember) {
+                        localStorage.setItem('token', token)
+                        sessionStorage.removeItem('token')
+                    } else {
+                        sessionStorage.setItem('token', token)
+                        localStorage.removeItem('token')
+                    }
+
                     this.isAuthenticated = true
 
                     // Fetch user profile
@@ -44,7 +53,7 @@ export const useUserStore = defineStore('user', {
 
                     // Connect WebSocket after successful login
                     console.log('🔌 Connecting to WebSocket...')
-                    socketService.connect(response.data.token)
+                    socketService.connect(token)
                 }
             } catch (error) {
                 console.error('Login failed:', error)
@@ -54,9 +63,9 @@ export const useUserStore = defineStore('user', {
             }
         },
         initializeAuth() {
-            // Token is automatically handled by axios interceptors
-            // Just check if token exists for initial WebSocket connection
-            const token = localStorage.getItem('token')
+            // Check both storages
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+
             if (token) {
                 console.log('🔌 Connecting to WebSocket (initializeAuth)...')
                 socketService.connect(token)
@@ -65,6 +74,7 @@ export const useUserStore = defineStore('user', {
         },
         logout() {
             localStorage.removeItem('token')
+            sessionStorage.removeItem('token')
             this.user = null
             this.isAuthenticated = false
             this.friends = []

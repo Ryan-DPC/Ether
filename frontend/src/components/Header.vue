@@ -18,6 +18,11 @@ const profilePicUrl = computed(() => {
   return userStore.user?.profile_pic || '/assets/images/default-game.png'
 })
 
+const formattedUsername = computed(() => {
+  if (!userStore.user?.username) return ''
+  return userStore.user.username.replace('#', ' #')
+})
+
 const toggleMenu = () => {
   console.log('Burger menu toggled. Current state:', isMenuOpen.value)
   isMenuOpen.value = !isMenuOpen.value
@@ -30,6 +35,23 @@ const toggleNotifications = () => {
 const logout = () => {
   userStore.logout()
 }
+
+// Close menu when clicking outside
+import { onMounted, onUnmounted } from 'vue'
+
+const closeMenu = (e) => {
+  if (isMenuOpen.value && !e.target.closest('.profile-section')) {
+    isMenuOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
+})
 </script>
 
 <template>
@@ -41,7 +63,7 @@ const logout = () => {
       <div v-if="userStore.isAuthenticated" class="profile-section">
         <div class="info compact">
           <div class="profile-row">
-            <span class="user-username">{{ userStore.user.username }}</span>
+            <span class="user-username">{{ formattedUsername }}</span>
             
             <button @click="toggleNotifications" class="icon-btn" aria-label="Notifications">
               <i class="fas fa-bell"></i>
@@ -54,19 +76,21 @@ const logout = () => {
           </div>
 
           <!-- Burger Menu -->
-          <div v-if="isMenuOpen" class="burger-menu show">
-            <div class="burger-header">
-                <strong>{{ userStore.user.username }}</strong>
+          <Transition name="dropdown">
+            <div v-if="isMenuOpen" class="burger-menu">
+              <div class="burger-header">
+                  <strong>{{ formattedUsername }}</strong>
+              </div>
+              <div class="burger-info">
+                  <span>CHF: {{ userStore.user.balances?.chf?.toFixed(2) || 0 }}</span>
+                  <span>Elo: {{ userStore.user.elo }}</span>
+              </div>
+              <div class="burger-actions">
+                  <RouterLink to="/profile" class="burger-link">Profil</RouterLink>
+                  <button @click="logout" class="burger-link danger">Déconnexion</button>
+              </div>
             </div>
-            <div class="burger-info">
-                <span>CHF: {{ userStore.user.balances?.chf?.toFixed(2) || 0 }}</span>
-                <span>Elo: {{ userStore.user.elo }}</span>
-            </div>
-            <div class="burger-actions">
-                <RouterLink to="/profile" class="burger-link">Profil</RouterLink>
-                <button @click="logout" class="burger-link danger">Déconnexion</button>
-            </div>
-          </div>
+          </Transition>
         </div>
       </div>
       
@@ -130,6 +154,7 @@ const logout = () => {
 .user-username {
   font-weight: 600;
   color: var(--text-secondary);
+  letter-spacing: 1px;
 }
 
 .icon-btn {
@@ -183,12 +208,25 @@ const logout = () => {
   flex-direction: column;
   gap: 12px;
   z-index: 100;
-  animation: slideDown 0.2s ease-out;
+  z-index: 100;
+  transform-origin: top right;
 }
 
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease-out;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+}
+
+.dropdown-enter-to,
+.dropdown-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .burger-header {
@@ -201,6 +239,8 @@ const logout = () => {
   color: var(--text-primary);
   font-size: 1.1rem;
   display: block;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
 }
 
 .burger-info {
@@ -222,6 +262,7 @@ const logout = () => {
 .burger-link {
   display: block;
   width: 100%;
+  box-sizing: border-box;
   padding: 10px;
   text-align: center;
   background: transparent;

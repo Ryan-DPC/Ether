@@ -23,7 +23,7 @@ const userStore = useUserStore()
 userStore.initializeAuth()
 
 // WebSocket connection
-const token = localStorage.getItem('token')
+const token = localStorage.getItem('token') || sessionStorage.getItem('token')
 if (token) {
     console.log('🔌 Initializing WebSocket connection...')
     socketService.connect(token)
