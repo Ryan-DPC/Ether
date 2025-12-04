@@ -24,7 +24,9 @@ const userSchema = new mongoose.Schema(
         xp: { type: Number, default: 0 },
         level: { type: Number, default: 1 },
         status_message: { type: String, default: 'Online' },
-        favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }]
+        favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }],
+        resetPasswordToken: { type: String, default: null },
+        resetPasswordExpires: { type: Date, default: null }
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
@@ -45,6 +47,16 @@ class Users {
 
     static async getUserByUsername(username) {
         const doc = await UserModel.findOne({ username }).lean();
+        if (!doc) return null;
+        return { ...doc, id: doc._id.toString() };
+    }
+
+    static async getUserByBaseUsername(baseUsername) {
+        // Case insensitive search for username starting with baseUsername followed by #
+        // Escape special regex characters in baseUsername just in case
+        const escapedUsername = baseUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`^${escapedUsername}#[a-zA-Z0-9]{4}$`, 'i');
+        const doc = await UserModel.findOne({ username: regex }).lean();
         if (!doc) return null;
         return { ...doc, id: doc._id.toString() };
     }
@@ -156,6 +168,15 @@ class Users {
 
     static async removeSocketId(socketId) {
         await UserModel.updateOne({ socket_id: socketId }, { $unset: { socket_id: 1 } });
+    }
+
+    static async getUserByResetToken(token) {
+        const doc = await UserModel.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }
+        }).lean();
+        if (!doc) return null;
+        return { ...doc, id: doc._id.toString() };
     }
 }
 

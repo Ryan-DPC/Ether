@@ -1,14 +1,10 @@
 const Users = require('../models/user.model');
 
 class UsersService {
-    static async saveSocketId(socketId, username) {
+    static async saveSocketId(userId, socketId) {
         try {
-            // Trouver l'utilisateur par username et mettre à jour son socketId
-            // Note: Le modèle a une méthode statique saveSocketId qui attend (socketId, username)
-            // Mais ici on passe (socketId, username) -> wait, le modèle attend (socketId, username) ?
-            // Vérifions le modèle: userSchema.statics.saveSocketId = async function (socketId, username) { return this.updateOne({ username }, { $set: { socketId } }); };
-            // C'est correct.
-            await Users.saveSocketId(socketId, username);
+            // Update socketId for the user identified by userId
+            await Users.saveSocketId(userId, socketId);
         } catch (error) {
             console.error('Erreur dans UserService.saveSocketId :', error);
             throw error;

@@ -6,7 +6,7 @@ let centralSocket;
 const connectToCentralServer = () => {
     if (centralSocket) return centralSocket;
 
-    const centralServerUrl = process.env.CENTRAL_WEBSOCKET_URL;
+    const centralServerUrl = process.env.CENTRAL_WEBSOCKET_URL || process.env.WS_URL;
 
     if (!centralServerUrl) {
         console.error('CENTRAL_WEBSOCKET_URL is not defined in environment variables');

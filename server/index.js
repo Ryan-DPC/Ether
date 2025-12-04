@@ -4,6 +4,7 @@ const { createClient } = require('redis');
 const connectDB = require('./config/db');
 const socketHandlers = require('./socket.handlers');
 const authMiddleware = require('./middleware/auth.middleware');
+const UsersService = require('./services/users.service');
 
 const PORT = process.env.WS_PORT || 4000;
 
@@ -78,6 +79,11 @@ io.on('connection', (socket) => {
     if (socket.userId) {
         socket.join(`user:${socket.userId}`);
 
+        // Save socket ID to DB
+        UsersService.saveSocketId(socket.userId, socket.id)
+            .then(() => console.log(`✅ Socket ID saved for user ${socket.username}`))
+            .catch(err => console.error(`❌ Failed to save socket ID for user ${socket.username}:`, err));
+
         // Mock Friends Logic for Status Updates (Connection)
         const mockFriends = {
             "user1": ["user2"],
@@ -93,6 +99,11 @@ io.on('connection', (socket) => {
 
         socket.on('disconnect', () => {
             rateLimiter.delete(socket.id);
+            // Remove socket ID from DB
+            UsersService.removeSocketId(socket.id)
+                .then(() => console.log(`✅ Socket ID removed for user ${socket.username}`))
+                .catch(err => console.error(`❌ Failed to remove socket ID for user ${socket.username}:`, err));
+
             friends.forEach(friendId => {
                 io.to(`user:${friendId}`).emit("friend:status-changed", {
                     userId: socket.userId,

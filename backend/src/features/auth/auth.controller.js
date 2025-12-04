@@ -54,6 +54,26 @@ class AuthController {
             res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(error.message)}`);
         }
     }
+
+    static async forgotPassword(req, res) {
+        try {
+            const { email } = req.body;
+            const result = await AuthService.forgotPassword(email);
+            res.status(200).json({ success: true, ...result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    static async resetPassword(req, res) {
+        try {
+            const { token, password } = req.body;
+            const result = await AuthService.resetPassword(token, password);
+            res.status(200).json({ success: true, ...result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = AuthController;

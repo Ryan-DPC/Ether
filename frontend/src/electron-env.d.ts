@@ -27,11 +27,13 @@ export interface ElectronAPI {
     onInstallProgress: (callback: (data: any) => void) => void;
     onInstallComplete: (callback: (data: any) => void) => void;
     onInstallError: (callback: (data: any) => void) => void;
+    onGameStatus: (callback: (data: any) => void) => void;
 
     // Game Launcher
     launchGame: (
         installPath: string,
-        gameFolderName: string
+        gameFolderName: string,
+        userData?: any
     ) => Promise<{ success: boolean; message: string; gameId?: string }>;
     getActiveGames: () => Promise<Array<{
         gameId: string;

@@ -133,26 +133,7 @@ class GameOwnershipController {
         }
     }
 
-    /**
-     * POST /api/game-ownership/purchase-used
-     * Purchase a used game from marketplace
-     */
-    static async purchaseUsed(req, res) {
-        try {
-            const buyerId = req.user.id;
-            const { ownershipToken, sellerId } = req.body;
 
-            if (!ownershipToken || !sellerId) {
-                return res.status(400).json({ error: 'ownershipToken and sellerId are required' });
-            }
-
-            const result = await GameOwnershipService.purchaseUsedGame(buyerId, ownershipToken, sellerId);
-            res.json(result);
-        } catch (error) {
-            console.error('Error purchasing game:', error);
-            res.status(400).json({ error: error.message });
-        }
-    }
 
     /**
      * GET /api/game-ownership/my-sales

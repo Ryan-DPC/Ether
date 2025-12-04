@@ -2,6 +2,7 @@ const Users = require('../users/user.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const CloudinaryService = require('../../services/cloudinary.service');
+const crypto = require('crypto');
 
 class AuthService {
     static async registerUser({ username, email, password, file, tag }) {
@@ -47,6 +48,10 @@ class AuthService {
             user = await Users.getUserByEmail(identifier);
         } else {
             user = await Users.getUserByUsername(identifier);
+            if (!user && !identifier.includes('#')) {
+                // Try to find by base username if no tag provided
+                user = await Users.getUserByBaseUsername(identifier);
+            }
         }
 
         if (!user) throw new Error('Utilisateur non trouvé.');
@@ -159,6 +164,48 @@ class AuthService {
         );
 
         return { user, token };
+    }
+
+    static async forgotPassword(email) {
+        const user = await Users.getUserByEmail(email);
+        if (!user) {
+            throw new Error('Aucun utilisateur trouvé avec cet email.');
+        }
+
+        // Generate token
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        const resetTokenExpires = Date.now() + 3600000; // 1 hour
+
+        // Save token to user
+        await Users.updateUser(user.id, {
+            resetPasswordToken: resetToken,
+            resetPasswordExpires: resetTokenExpires
+        });
+
+        // In a real app, send email here
+        // For now, we'll return the token for testing purposes if needed, 
+        // but typically we just return success message.
+        console.log(`[EMAIL MOCK] Reset Password Link: http://localhost:5173/reset-password?token=${resetToken}`);
+
+        return { message: 'Un email de réinitialisation a été envoyé.' };
+    }
+
+    static async resetPassword(token, newPassword) {
+        const user = await Users.getUserByResetToken(token);
+
+        if (!user) {
+            throw new Error('Jeton de réinitialisation invalide ou expiré.');
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await Users.updateUser(user.id, {
+            password: hashedPassword,
+            resetPasswordToken: null,
+            resetPasswordExpires: null
+        });
+
+        return { message: 'Mot de passe réinitialisé avec succès.' };
     }
 }
 

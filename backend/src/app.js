@@ -1,3 +1,4 @@
+require('express-async-errors');
 const express = require('express');
 const connectDB = require('./config/db');
 const { connectRedis } = require('./config/redis');

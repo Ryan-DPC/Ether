@@ -82,6 +82,7 @@ const handleLogin = async () => {
                         <input type="checkbox" v-model="rememberMe">
                         <span>Remember me</span>
                     </label>
+                    <router-link to="/forgot-password" class="forgot-password">Forgot Password?</router-link>
                 </div>
 
                 <button type="submit" :disabled="userStore.isLoading" class="btn-primary">
@@ -265,6 +266,17 @@ input::placeholder {
     padding: 0;
     accent-color: #ff7eb3;
     cursor: pointer;
+}
+
+.forgot-password {
+    color: #b0b9c3;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.forgot-password:hover {
+    color: #ff7eb3;
 }
 
 .btn-primary {

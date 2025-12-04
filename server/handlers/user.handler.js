@@ -26,7 +26,8 @@ module.exports = (io, socket) => {
 
         socket.data.name = name.trim();
         try {
-            await UsersService.saveSocketId(socket.id, socket.data.name);
+            // UsersService.saveSocketId handled in index.js on connection
+            // await UsersService.saveSocketId(socket.id, socket.data.name);
             console.log(`User set their name: ${socket.data.name}`);
             socket.emit('nameSet', { name: socket.data.name });
         } catch (error) {
@@ -38,8 +39,9 @@ module.exports = (io, socket) => {
     // Déconnexion (nettoyage utilisateur)
     socket.on('disconnect', async () => {
         try {
-            await UsersService.removeSocketId(socket.id);
-            console.log(`Socket ID ${socket.id} removed from database.`);
+            // Handled in index.js
+            // await UsersService.removeSocketId(socket.id);
+            // console.log(`Socket ID ${socket.id} removed from database.`);
         } catch (error) {
             console.error(`Error removing socketId: ${error.message}`);
         }

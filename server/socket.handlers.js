@@ -10,6 +10,7 @@ module.exports = (io, socket) => {
     friendsHandler(io, socket);
     lobbyHandler(io, socket);
     chatHandler(io, socket);
+    require('./handlers/transaction.handler')(io, socket);
 
     console.log(`[socket.handlers] All handlers registered for user ${socket.userId}`);
 };

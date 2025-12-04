@@ -86,6 +86,14 @@ export const useUserStore = defineStore('user', {
 
             // Force reload to clear any other state or redirect
             window.location.href = '/login'
+        },
+        updateBalance(currency: string, newAmount: number) {
+            if (this.user && this.user.balances) {
+                const key = currency.toLowerCase();
+                if (this.user.balances[key] !== undefined) {
+                    this.user.balances[key] = newAmount;
+                }
+            }
         }
     }
 })

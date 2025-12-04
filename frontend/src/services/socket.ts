@@ -2,6 +2,8 @@ import { io, Socket } from 'socket.io-client'
 import { useFriendsStore } from '../stores/friendsStore'
 import { useLobbyStore } from '../stores/lobbyStore'
 import { useToastStore } from '../stores/toastStore'
+import { useUserStore } from '../stores/userStore'
+import { useNotificationStore } from '../stores/notificationStore'
 import router from '../router'
 
 class SocketService {
@@ -129,6 +131,53 @@ class SocketService {
 
         this.socket.on('chat:stop-typing', (data) => {
             window.dispatchEvent(new CustomEvent('chat:stop-typing', { detail: data }));
+        });
+
+        // Transaction events
+        this.socket.on('transaction:success', (data) => {
+            console.log('📡 Transaction success:', data);
+            const userStore = useUserStore();
+            const notificationStore = useNotificationStore();
+            const toastStore = useToastStore();
+
+            // Update balance
+            if (data.newBalance !== undefined) {
+                userStore.updateBalance('CHF', data.newBalance);
+            }
+
+            // Add notification
+            notificationStore.addNotification({
+                title: 'Achat confirmé',
+                message: `Vous avez acheté ${data.game.game_name} pour ${data.game.purchase_price} CHF.`,
+                type: 'success',
+                actionUrl: '/library'
+            });
+
+            // Show toast
+            toastStore.success(`Achat réussi : ${data.game.game_name}`);
+        });
+
+        this.socket.on('transaction:seller_notification', (data) => {
+            console.log('📡 Seller notification:', data);
+            const userStore = useUserStore();
+            const notificationStore = useNotificationStore();
+            const toastStore = useToastStore();
+
+            // Fetch profile to get updated balance since server only sends amount added
+            // Or we can calculate it if we trust the current state
+            // For now, let's fetch profile to be safe and accurate
+            userStore.fetchProfile();
+
+            // Add notification
+            notificationStore.addNotification({
+                title: 'Vente réalisée !',
+                message: data.message,
+                type: 'success',
+                actionUrl: '/profile'
+            });
+
+            // Show toast
+            toastStore.success(data.message);
         });
 
         console.log('📡 WebSocket event listeners registered');

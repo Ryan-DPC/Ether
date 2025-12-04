@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { socketService } from '../services/socket'
 
 export const useMarketplaceStore = defineStore('marketplace', {
     state: () => ({
@@ -56,16 +57,38 @@ export const useMarketplaceStore = defineStore('marketplace', {
             }
         },
         async buyUsedGame(ownershipToken: string, sellerId: string) {
-            try {
-                const response = await axios.post('/game-ownership/purchase-used', {
+            return new Promise((resolve, reject) => {
+                // Listen for success
+                const successHandler = (data: any) => {
+                    socketService.off('transaction:success')
+                    socketService.off('transaction:error')
+                    this.fetchUsedGames() // Refresh list
+                    resolve(data)
+                }
+
+                // Listen for error
+                const errorHandler = (data: any) => {
+                    socketService.off('transaction:success')
+                    socketService.off('transaction:error')
+                    reject(new Error(data.message || 'Transaction failed'))
+                }
+
+                socketService.on('transaction:success', successHandler)
+                socketService.on('transaction:error', errorHandler)
+
+                // Emit purchase request
+                socketService.emit('transaction:purchase', {
                     ownershipToken,
                     sellerId
                 })
-                await this.fetchUsedGames()
-                return response.data
-            } catch (error) {
-                throw error
-            }
+
+                // Timeout safety
+                setTimeout(() => {
+                    socketService.off('transaction:success')
+                    socketService.off('transaction:error')
+                    reject(new Error('Transaction timed out'))
+                }, 10000)
+            })
         },
         async sellGame(gameKey: string, askingPrice: number) {
             try {

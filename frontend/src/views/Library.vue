@@ -25,7 +25,7 @@ const isAddingFriend = ref(false)
 const showAddFriendInput = ref(false)
 const showFilterMenu = ref(false)
 const currentFriendFilter = ref<'all' | 'online' | 'in-game'>('all')
-import { useChatStore } from '@/stores/chatStore'
+import { useChatStore } from '../stores/chatStore'
 const chatStore = useChatStore()
 
 // Installation state
