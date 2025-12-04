@@ -4,6 +4,20 @@
   "version": "0.0.0",
   "type": "module",
   "main": "electron/main.cjs",
+  "description": "Ether Gaming Platform",
+  "author": "Ether Team",
+  "build": {
+    "appId": "com.ether.app",
+    "productName": "Ether",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
