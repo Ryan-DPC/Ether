@@ -20,6 +20,11 @@ const userSchema = new mongoose.Schema(
         profile_pic: { type: String, default: null },
         elo: { type: Number, default: 1600 },
         socket_id: { type: String, default: null, index: true },
+        // New fields for Cyber Sakura profile
+        xp: { type: Number, default: 0 },
+        level: { type: Number, default: 1 },
+        status_message: { type: String, default: 'Online' },
+        favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }]
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
@@ -78,7 +83,11 @@ class Users {
     }
 
     static async getUserById(userId) {
-        const doc = await UserModel.findById(userId, { username: 1, tokens: 1, elo: 1, profile_pic: 1, profile_picture: 1, currency: 1, balances: 1, isAdmin: 1 }).lean();
+        const doc = await UserModel.findById(userId, {
+            username: 1, tokens: 1, elo: 1, profile_pic: 1, profile_picture: 1,
+            currency: 1, balances: 1, isAdmin: 1, created_at: 1,
+            xp: 1, level: 1, status_message: 1, favorite_games: 1
+        }).populate('favorite_games', 'name image_url').lean();
         if (!doc) return null;
         const user = { id: doc._id.toString(), ...doc };
         if (!user.profile_picture && user.profile_pic) {

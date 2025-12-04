@@ -151,7 +151,7 @@ const handleReject = async (requestId: string) => {
 
 .social-layout {
   display: grid; 
-  grid-template-columns: 350px 1fr; 
+  grid-template-columns: 400px 1fr; 
   gap: 24px;
   flex: 1;
   min-height: 0; /* Important for nested flex scrolling */
@@ -184,8 +184,9 @@ const handleReject = async (requestId: string) => {
 .status-dot.online { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
 
 .nav-tabs {
-  display: flex; padding: 16px 24px 0; gap: 20px;
+  display: flex; padding: 16px 20px 0; gap: 15px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
+  white-space: nowrap;
 }
 .nav-tabs button {
   background: none; border: none; color: #b0b9c3;

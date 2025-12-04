@@ -79,6 +79,7 @@ class UsersController {
             const recentGames = await GameOwnership.find({ user_id: userId })
                 .sort({ purchase_date: -1 })
                 .limit(10)
+                .populate('game_id', 'name image_url')
                 .lean();
 
             res.json({ success: true, games: recentGames });

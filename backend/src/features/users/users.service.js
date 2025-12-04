@@ -1,11 +1,16 @@
 const Users = require('./user.model');
 
+const GameOwnership = require('../game-ownership/game-ownership.model');
+
 class UsersService {
     static async getUserProfile(userId) {
         try {
             const user = await Users.getUserById(userId);
             if (!user) throw new Error('Utilisateur introuvable.');
-            return user;
+
+            const gamesOwned = await GameOwnership.countDocuments({ user_id: userId, status: 'owned' });
+
+            return { ...user, games_owned: gamesOwned };
         } catch (error) {
             throw new Error(`Erreur lors de la récupération du profil utilisateur : ${error.message}`);
         }

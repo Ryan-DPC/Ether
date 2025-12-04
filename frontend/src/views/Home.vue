@@ -142,7 +142,7 @@ const categories = [
         <section class="discover-section">
           <div class="section-header">
             <h2>
-              <img src="@/assets/images/sakura-branch.png" alt="Sakura" class="title-decoration">
+              <!-- <img src="@/assets/images/sakura-branch.png" alt="Sakura" class="title-decoration"> -->
               DISCOVER
             </h2>
           </div>

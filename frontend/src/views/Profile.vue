@@ -7,91 +7,69 @@ import axios from 'axios'
 const userStore = useUserStore()
 const itemStore = useItemStore()
 
-const activeTab = ref('about')
+const activeTab = ref('profile') // 'profile' or 'inventory'
 const typeFilter = ref('')
 const friends = ref<any[]>([])
 const recentGames = ref<any[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 
-const isOwnProfile = computed(() => {
-  return true // Simplified - in real app would check route params
-})
 
-const triggerFileInput = () => {
-  fileInput.value?.click()
-}
+
+const isOwnProfile = computed(() => true)
+
+const triggerFileInput = () => fileInput.value?.click()
 
 const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   if (!target.files || target.files.length === 0) return
-
   const file = target.files[0]
   if (!file) return
-
   const formData = new FormData()
   formData.append('avatar', file as Blob)
 
   try {
-    // Optimistic update
     const reader = new FileReader()
     reader.onload = (e) => {
-      if (userStore.user && e.target?.result) {
-        userStore.user.profile_pic = e.target.result as string
-      }
+      if (userStore.user && e.target?.result) userStore.user.profile_pic = e.target.result as string
     }
     reader.readAsDataURL(file)
-
-    const response = await axios.post('/users/avatar', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
-    if (response.data.success) {
-      userStore.user.profile_pic = response.data.profile_pic
-      alert('Avatar mis à jour !')
-    }
+    const response = await axios.post('/users/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+    if (response.data.success) userStore.user.profile_pic = response.data.profile_pic
   } catch (error) {
     console.error('Upload failed:', error)
-    alert('Erreur lors de l\'upload de l\'avatar')
-    // Revert optimistic update if needed (requires storing previous state)
     await userStore.fetchProfile()
   }
 }
 
+const badges = ref<any[]>([])
+
 onMounted(async () => {
   await userStore.fetchProfile()
-  if (activeTab.value === 'inventory') {
-    await itemStore.fetchMyItems()
-  }
-  // Fetch friends and recent games
+  if (activeTab.value === 'inventory') await itemStore.fetchMyItems()
   fetchFriends()
   fetchRecentGames()
+  fetchBadges()
 })
 
-const switchTab = (tab: string) => {
-  activeTab.value = tab
-  if (tab === 'inventory') {
-    itemStore.fetchMyItems()
-  }
+const fetchBadges = async () => {
+  if (itemStore.myItems.length === 0) await itemStore.fetchMyItems()
+  badges.value = itemStore.myItems
+    .filter((i: any) => i.item?.item_type === 'badge' && i.is_equipped)
+    .map((i: any) => i.item)
 }
 
 const fetchFriends = async () => {
   try {
     const response = await axios.get('/friends/list')
     friends.value = response.data.friends || []
-  } catch (error) {
-    console.error('Failed to fetch friends')
-  }
+  } catch (error) { console.error('Failed to fetch friends') }
 }
 
 const fetchRecentGames = async () => {
   try {
     const response = await axios.get('/users/recent-games')
     recentGames.value = response.data.games || []
-  } catch (error) {
-    console.error('Failed to fetch recent games')
-  }
+  } catch (error) { console.error('Failed to fetch recent games') }
 }
 
 const filteredInventory = computed(() => {
@@ -102,1029 +80,560 @@ const filteredInventory = computed(() => {
 const equipItem = async (itemId: string) => {
   try {
     await itemStore.equipItem(itemId)
-    alert('Item équipé!')
     setTimeout(() => location.reload(), 500)
-  } catch (error: any) {
-    alert(error.response?.data?.message || 'Erreur')
-  }
+  } catch (error: any) { alert(error.response?.data?.message || 'Erreur') }
 }
 
 const unequipItem = async (itemId: string) => {
   try {
     await itemStore.unequipItem(itemId)
-    alert('Item déséquipé!')
     setTimeout(() => location.reload(), 500)
-  } catch (error: any) {
-    alert(error.response?.data?.message || 'Erreur')
-  }
+  } catch (error: any) { alert(error.response?.data?.message || 'Erreur') }
 }
 </script>
 
 <template>
-  <div class="profile-page">
-    <!-- Profile Header -->
-    <header class="profile-header">
-      <div class="profile-header-section">
-        <div class="profile-avatar-container">
-          <div class="profile-avatar">
-            <img :src="userStore.user?.profile_pic || '/assets/images/default-game.png'">
-            <div v-if="isOwnProfile" class="avatar-overlay" @click="triggerFileInput">
-              <span>Modifier</span>
+  <div class="cyber-profile-page">
+    <!-- Cherry Blossom Background Effect (CSS only for now) -->
+    <div class="cherry-blossoms"></div>
+
+    <div class="cyber-container">
+      
+      <!-- HEADER SECTION -->
+      <div class="cyber-header">
+        <div class="header-content">
+          <div class="avatar-section">
+            <div class="cyber-avatar">
+              <img :src="userStore.user?.profile_pic || '/assets/images/default-game.png'">
+              <div class="avatar-glow"></div>
+              <div v-if="isOwnProfile" class="edit-overlay" @click="triggerFileInput">
+                <i class="fas fa-camera"></i>
+              </div>
+            </div>
+            <input type="file" ref="fileInput" class="hidden-input" accept="image/*" @change="handleFileUpload">
+          </div>
+
+          <div class="user-info">
+            <div class="name-row">
+              <h1>{{ userStore.user?.username || 'User' }}</h1>
+              <span class="status-indicator">▼</span>
+            </div>
+            <div class="status-text">
+              <span class="online">Online</span>
+              <span v-if="userStore.user?.status_message"> - {{ userStore.user?.status_message }}</span>
             </div>
           </div>
-          <input 
-            type="file" 
-            ref="fileInput" 
-            class="hidden-input" 
-            accept="image/*"
-            @change="handleFileUpload"
-          >
-        </div>
-        <div class="profile-info">
-          <h1>{{ userStore.user?.username || 'Utilisateur' }}</h1>
-          <p class="profile-title">Joueur</p>
-          <div class="profile-stats">
-            <span class="stat-item">
-              <strong>Elo:</strong> {{ userStore.user?.elo || 1600 }}
-            </span>
-            <span class="stat-item">
-              <strong>Tokens:</strong> {{ userStore.user?.tokens || 0 }}
-            </span>
-            <span class="stat-item" v-if="userStore.user?.balances">
-              <strong>CHF:</strong> {{ (userStore.user.balances?.chf || 0).toFixed(2) }}
-            </span>
+
+          <div class="level-section">
+            <div class="level-badge">
+              <span class="label">Level</span>
+              <span class="value">{{ userStore.user?.level || 1 }}</span>
+              <div class="xp-circle">XP</div>
+            </div>
+            <div class="header-actions">
+              <button class="btn-cyber" @click="activeTab = 'profile'">Edit Profile</button>
+              <button class="btn-cyber" @click="activeTab = 'inventory'">Inventory</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Tabs -->
-      <nav class="profile-nav">
-        <ul>
-          <li>
-            <a 
-              :class="{ active: activeTab === 'about' }" 
-              @click="switchTab('about')"
-            >
-              À propos
-            </a>
-          </li>
-          <li v-if="isOwnProfile">
-            <a 
-              :class="{ active: activeTab === 'inventory' }" 
-              @click="switchTab('inventory')"
-            >
-              Inventaire
-            </a>
-          </li>
-        </ul>
-      </nav>
-    </header>
-
-    <!-- Main Content -->
-    <main class="profile-main">
-      <!-- About Tab -->
-      <div v-show="activeTab === 'about'" class="about-section">
-        <div class="profile-left-column">
-          <!-- Friends Section -->
-          <section class="profile-section">
-            <h3>Amis</h3>
-            <div class="friends-list-container">
-              <ul v-if="friends.length > 0" class="friends-list">
-                <li v-for="friend in friends.slice(0, 10)" :key="friend.id" class="friend-item">
-                  <img :src="friend.profile_pic || '/assets/images/default-game.png'" class="friend-avatar">
-                  <span class="friend-name">{{ friend.username }}</span>
-                  <span class="friend-elo">Elo: {{ friend.elo || 1600 }}</span>
-                </li>
-              </ul>
-              <p v-else class="no-friends">Aucun ami</p>
-              <p v-if="friends.length > 10" class="friends-more">
-                Et {{ friends.length - 10 }} autre(s) ami(s)
-              </p>
+      <!-- MAIN GRID -->
+      <div class="cyber-grid" v-if="activeTab === 'profile'">
+        
+        <!-- LEFT COLUMN (Main Content) -->
+        <div class="main-col">
+          
+          <!-- Level & XP Bar -->
+          <div class="cyber-panel level-panel">
+            <div class="panel-header">
+              <h3>Level & XP</h3>
             </div>
-          </section>
-
-          <!-- Information Section -->
-          <section class="profile-section">
-            <h3>Informations</h3>
-            <div class="info-detail">
-              <div class="info-row">
-                <span class="info-label">Jeux possédés</span>
-                <span class="info-value">{{ userStore.user?.games_owned || 0 }}</span>
+            <div class="xp-container">
+              <div class="xp-bar">
+                <div class="xp-fill" :style="{ width: ((userStore.user?.xp || 0) / 100) * 100 + '%' }"></div>
               </div>
-              <div class="info-row">
-                <span class="info-label">Temps de jeu</span>
-                <span class="info-value">{{ userStore.user?.total_playtime || 0 }} heures</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Elo</span>
-                <span class="info-value">{{ userStore.user?.elo || 1600 }}</span>
+              <div class="xp-stats">
+                <span>{{ userStore.user?.xp || 0 }} XP</span>
+                <span>{{ userStore.user?.xp || 0 }} / 100 XP</span>
               </div>
             </div>
-          </section>
+          </div>
 
-          <!-- Badges Section -->
-          <section class="badges profile-section">
-            <h3>Badges</h3>
-            <ul v-if="userStore.user?.badges && userStore.user.badges.length > 0">
-              <li v-for="badge in userStore.user.badges" :key="badge.id">
-                <img :src="badge.image_url" :alt="badge.name" :title="badge.name">
-              </li>
-            </ul>
-            <p v-else>Aucun badge</p>
-          </section>
-        </div>
-
-        <div class="profile-right-column">
-          <!-- Recent Activity -->
-          <section class="recent-activity profile-section">
-            <h2>Activité récente</h2>
-            <div v-if="recentGames.length > 0">
-              <div v-for="game in recentGames" :key="game.id" class="recent-game">
-                <img :src="game.image_url || '/assets/images/default-game.png'">
-                <div class="game-info">
-                  <h3>{{ game.game_name || game.name }}</h3>
-                  <p v-if="game.winner_name || game.loser_name">
-                    Partie: {{ game.winner_name }} vs {{ game.loser_name }}
-                  </p>
+          <!-- Favorite Games -->
+          <div class="cyber-panel favorites-panel">
+            <div class="panel-header">
+              <h3>Favorite Games</h3>
+            </div>
+            <div class="favorites-grid">
+              <div 
+                v-for="(game, index) in recentGames.slice(0,4)" 
+                :key="index" 
+                class="fav-game-card"
+              >
+                <img :src="game.game_id?.image_url || '/assets/images/default-game.png'">
+                <div class="game-overlay">
+                  <span>{{ game.game_name || game.game_id?.name }}</span>
                 </div>
               </div>
-            </div>
-            <p v-else>Aucune activité récente.</p>
-          </section>
-
-          <!-- Skills Section -->
-          <section class="profile-section">
-            <h3>Compétences</h3>
-            <ul class="skills-list">
-              <li>Jeux multijoueurs</li>
-              <li>Jeux de stratégie</li>
-              <li>Jeux de réflexion</li>
-              <li>Jeux compétitifs</li>
-            </ul>
-          </section>
-        </div>
-      </div>
-
-      <!-- Inventory Tab -->
-      <div v-show="activeTab === 'inventory'" class="inventory-section">
-        <h2>Mon Inventaire</h2>
-        <div class="inventory-filters">
-          <select v-model="typeFilter">
-            <option value="">Tous les types</option>
-            <option value="profile_picture">Photos de profil</option>
-            <option value="badge">Badges</option>
-            <option value="banner">Bannières</option>
-            <option value="avatar_frame">Cadres d'avatar</option>
-          </select>
-        </div>
-        <div class="inventory-items-grid">
-          <div 
-            v-for="item in filteredInventory" 
-            :key="item.item?.id" 
-            :class="['inventory-item-card', { equipped: item.is_equipped }]"
-          >
-            <div class="inventory-item-image">
-              <img :src="item.item?.image_url || '/assets/images/default-game.png'">
-              <div v-if="item.is_equipped" class="equipped-badge-inv">Équipé</div>
-              <div :class="['rarity-badge-inv', `rarity-${item.item?.rarity}`]">
-                {{ item.item?.rarity }}
+              <div v-if="recentGames.length === 0" class="no-data-msg">
+                No favorite games yet.
               </div>
             </div>
-            <h4>{{ item.item?.name }}</h4>
-            <p class="item-description">{{ item.item?.description || '' }}</p>
-            <button 
-              v-if="item.is_equipped" 
-              @click="unequipItem(item.item?.id)" 
-              class="unequip-btn"
-            >
-              Déséquiper
-            </button>
-            <button 
-              v-else 
-              @click="equipItem(item.item?.id)" 
-              class="equip-btn"
-            >
-              Équiper
-            </button>
           </div>
-          <p v-if="filteredInventory.length === 0">
-            Votre inventaire est vide. Visitez le <RouterLink to="/store">store</RouterLink> pour acheter des items !
-          </p>
+
+          <!-- Recent Activity Feed -->
+          <div class="cyber-panel feed-panel">
+            <div class="panel-header">
+              <h3>Recent Activity Feed</h3>
+            </div>
+            <div class="feed-list">
+              <div class="feed-item" v-for="game in recentGames" :key="game._id">
+                <div class="feed-avatar">
+                  <img :src="userStore.user?.profile_pic || '/assets/images/default-game.png'">
+                </div>
+                <div class="feed-content">
+                  <div class="feed-text">
+                    <span class="user-link">{{ userStore.user?.username }}</span> 
+                    bought 
+                    <span class="game-link">{{ game.game_name || game.game_id?.name }}</span>
+                  </div>
+                  <div class="feed-media">
+                    <img :src="game.game_id?.image_url || '/assets/images/default-game.png'">
+                  </div>
+                  <div class="feed-actions">
+                    <i class="far fa-smile"></i>
+                    <i class="far fa-comment"></i>
+                    <i class="far fa-heart"></i>
+                  </div>
+                </div>
+              </div>
+              <div v-if="recentGames.length === 0" class="empty-feed">
+                No recent activity.
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN (Sidebar) -->
+        <div class="sidebar-col">
+          
+          <!-- Badges -->
+          <div class="cyber-panel badges-panel">
+            <div class="panel-header">
+              <h3>Badges & Achievements</h3>
+            </div>
+            <div class="badges-row">
+              <div v-for="badge in badges" :key="badge.id" class="badge-icon">
+                <img :src="badge.image_url">
+              </div>
+              <div v-if="badges.length === 0" class="no-badges">No badges yet</div>
+            </div>
+          </div>
+
+          <!-- Friends List -->
+          <div class="cyber-panel friends-panel">
+            <div class="panel-header">
+              <h3>Friends List</h3>
+            </div>
+            <div class="friends-list">
+              <div v-for="friend in friends" :key="friend.id" class="friend-item">
+                <img :src="friend.profile_pic || '/assets/images/default-game.png'" class="friend-pic">
+                <div class="friend-info">
+                  <span class="f-name">{{ friend.username }}</span>
+                  <span class="f-status">{{ friend.status || 'Online' }}</span>
+                </div>
+                <div class="f-level">{{ friend.level || 1 }}</div>
+              </div>
+              <div v-if="friends.length === 0" class="no-friends">No friends yet</div>
+            </div>
+          </div>
+
+          <!-- Groups -->
+          <div class="cyber-panel groups-panel">
+            <div class="panel-header">
+              <h3>Groups</h3>
+            </div>
+            <div class="groups-list">
+              <div class="no-groups">No groups joined</div>
+            </div>
+          </div>
+
+          <!-- Quick Links -->
+          <div class="cyber-panel links-panel">
+            <div class="panel-header">
+              <h3>Quick Links</h3>
+            </div>
+            <ul class="quick-links">
+              <li>Edit Profile</li>
+              <li>Inventory</li>
+              <li>Settings</li>
+            </ul>
+          </div>
+
         </div>
       </div>
-    </main>
+
+      <!-- INVENTORY TAB (Kept simple for now) -->
+      <div v-else class="cyber-grid inventory-mode">
+        <div class="cyber-panel full-width">
+          <div class="panel-header">
+            <h3>Inventory</h3>
+            <button class="btn-close" @click="activeTab = 'profile'"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="inventory-content">
+             <div class="inventory-controls">
+                <select v-model="typeFilter" class="cyber-select">
+                  <option value="">All Items</option>
+                  <option value="badge">Badges</option>
+                  <option value="profile_picture">Avatars</option>
+                </select>
+             </div>
+             <div class="inv-grid">
+                <div v-for="item in filteredInventory" :key="item.item?.id" class="inv-card" :class="{equipped: item.is_equipped}">
+                   <img :src="item.item?.image_url">
+                   <span>{{ item.item?.name }}</span>
+                   <button v-if="!item.is_equipped" @click="equipItem(item.item?.id)">Equip</button>
+                   <button v-else @click="unequipItem(item.item?.id)" class="unequip">Unequip</button>
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Variables */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap');
+
 :root {
-  --neon-pink: #ff7eb3;
-  --neon-cyan: #7afcff;
-  --glass-bg: rgba(30, 25, 40, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --cyber-bg: #0f0b15;
+  --cyber-panel: rgba(20, 15, 30, 0.85);
+  --neon-pink: #ff2a6d;
+  --neon-cyan: #05d9e8;
+  --neon-purple: #d300c5;
   --text-main: #ffffff;
-  --text-dim: #b0b9c3;
+  --text-dim: #8a8a9b;
 }
 
-.profile-page {
-  color: var(--text-main);
+.cyber-profile-page {
+  background-color: #0f0b15;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(211, 0, 197, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(5, 217, 232, 0.1) 0%, transparent 40%);
   min-height: 100%;
+  color: white;
+  font-family: 'Rajdhani', sans-serif;
+  padding: 20px;
+  overflow-y: auto;
 }
 
-/* Header */
-.profile-header {
-  background: rgba(30, 25, 40, 0.4);
-  backdrop-filter: blur(10px);
-  padding: 40px;
-  border-bottom: 1px solid var(--glass-border);
+.cyber-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* HEADER */
+.cyber-header {
+  background: rgba(20, 15, 30, 0.6);
+  border: 1px solid rgba(211, 0, 197, 0.3);
+  border-radius: 12px;
+  padding: 30px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 0 20px rgba(211, 0, 197, 0.1);
 }
 
-.profile-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--neon-pink), transparent);
-  opacity: 0.5;
-}
-
-.profile-header-section {
+.header-content {
   display: flex;
-  gap: 30px;
-  margin-bottom: 30px;
   align-items: center;
-  max-width: 1200px;
-  margin: 0 auto 30px;
+  gap: 30px;
+  position: relative;
+  z-index: 2;
 }
 
-.profile-avatar-container {
-  position: relative;
+.cyber-avatar {
   width: 140px;
   height: 140px;
-  flex-shrink: 0;
-}
-
-.profile-avatar {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  overflow: hidden;
+  border: 4px solid var(--neon-cyan);
+  border-radius: 12px; /* Square with rounded corners */
+  box-shadow: 0 0 25px rgba(5, 217, 232, 0.4);
   position: relative;
-  border: 3px solid var(--neon-cyan);
-  box-shadow: 0 0 20px rgba(122, 252, 255, 0.3);
+  background: #000;
 }
 
-.profile-avatar img {
+.cyber-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 8px;
 }
 
-.avatar-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s;
-  cursor: pointer;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+.edit-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: 0.3s; cursor: pointer; font-size: 2rem;
 }
-
-.profile-avatar:hover .avatar-overlay {
-  opacity: 1;
-}
+.cyber-avatar:hover .edit-overlay { opacity: 1; }
 
 .hidden-input { display: none; }
 
-.profile-info h1 {
-  font-size: 2.5rem;
-  margin-bottom: 5px;
-  background: linear-gradient(to right, #fff, #b0b9c3);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 700;
-}
-
-.profile-title {
-  color: var(--neon-pink);
-  margin-bottom: 20px;
-  font-size: 1.1rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  font-weight: 600;
-}
-
-.profile-stats {
-  display: flex;
-  gap: 15px;
-}
-
-.stat-item {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--glass-border);
-  font-size: 0.9rem;
-  color: var(--text-dim);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.stat-item strong {
-  color: var(--text-main);
-}
-
-/* Navigation Tabs */
-.profile-nav {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.profile-nav ul {
-  list-style: none;
-  display: flex;
-  gap: 30px;
-  margin: 0;
-  padding: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.profile-nav a {
-  padding: 15px 5px;
-  color: var(--text-dim);
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.3s;
-  position: relative;
-  font-weight: 500;
-  display: block;
-}
-
-.profile-nav a::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 0;
-  height: 2px;
-  background: var(--neon-cyan);
-  transition: width 0.3s ease;
-  box-shadow: 0 0 10px var(--neon-cyan);
-}
-
-.profile-nav a:hover {
-  color: var(--text-main);
-}
-
-.profile-nav a.active {
-  color: var(--neon-cyan);
-}
-
-.profile-nav a.active::after {
-  width: 100%;
-}
-
-/* Main Layout */
-.profile-main {
-  padding: 40px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.about-section {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 40px;
-}
-
-.profile-section {
-  background: var(--glass-bg);
-  padding: 25px;
-  border-radius: 24px;
-  margin-bottom: 30px;
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.profile-section h3, .profile-section h2 {
-  margin-bottom: 20px;
-  font-size: 1.4rem;
-  color: var(--text-main);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding-bottom: 10px;
-}
-
-/* Friends List */
-.friends-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.friend-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  transition: background 0.2s;
-}
-
-.friend-item:last-child { border-bottom: none; }
-
-.friend-avatar {
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-.friend-name {
+.user-info { 
   flex: 1;
-  font-weight: 500;
-}
-
-.friend-elo {
-  color: var(--neon-pink);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-/* Info Section */
-.info-detail .info-row {
   display: flex;
-  justify-content: space-between;
-  padding: 15px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-.info-label { color: var(--text-dim); }
-.info-value { font-weight: 600; color: var(--text-main); }
-
-/* Badges */
-.badges ul {
+.name-row {
   display: flex;
+  align-items: center;
   gap: 15px;
-  flex-wrap: wrap;
-  list-style: none;
-  padding: 0;
 }
 
-.badges img {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border-radius: 12px;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 5px;
-  transition: transform 0.2s;
+.name-row h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.5rem;
+  margin: 0;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
-.badges img:hover { transform: scale(1.1); }
-
-/* Recent Activity */
-.recent-game {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 15px;
-  border-radius: 16px;
-  border: 1px solid transparent;
-  transition: all 0.3s;
-}
-
-.recent-game:hover {
-  border-color: var(--neon-cyan);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.recent-game img {
-  width: 70px;
-  height: 70px;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-.recent-game .game-info h3 {
-  font-size: 1.1rem;
-  margin-bottom: 5px;
-  border: none;
-  padding: 0;
+.status-text {
   color: var(--neon-cyan);
+  font-size: 1.1rem;
+  margin: 5px 0;
 }
 
-/* Skills */
-.skills-list {
-  list-style: none;
-  padding: 0;
+.mood-text {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.level-section {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 15px;
+}
+
+.level-badge {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
-.skills-list li {
-  background: rgba(122, 252, 255, 0.1);
-  color: var(--neon-cyan);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  border: 1px solid rgba(122, 252, 255, 0.2);
+.level-badge .label { font-size: 1.5rem; color: #fff; }
+.level-badge .value { 
+  font-family: 'Orbitron', sans-serif; 
+  font-size: 3rem; 
+  color: var(--neon-purple);
+  text-shadow: 0 0 15px var(--neon-purple);
 }
-
-/* Inventory */
-.inventory-section { width: 100%; }
-
-.inventory-filters { margin-bottom: 30px; }
-
-.inventory-filters select {
-  padding: 10px 20px;
-  background: rgba(30, 25, 40, 0.8);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  color: var(--text-main);
-  outline: none;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.inventory-filters select:focus {
-  border-color: var(--neon-cyan);
-}
-
-.inventory-items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 25px;
-}
-
-.inventory-item-card {
-  background: rgba(30, 25, 40, 0.6);
-  backdrop-filter: blur(5px);
-  border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  padding: 20px;
-  text-align: center;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.inventory-item-card:hover {
-  transform: translateY(-8px);
-  border-color: var(--neon-cyan);
-  box-shadow: 0 10px 30px rgba(122, 252, 255, 0.15);
-}
-
-.inventory-item-card.equipped {
-  border-color: var(--neon-pink);
-  box-shadow: 0 0 20px rgba(255, 126, 179, 0.2);
-}
-
-.inventory-item-image {
-  position: relative;
-  width: 100%;
-  height: 160px;
-  margin-bottom: 15px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.inventory-item-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s;
-}
-
-.inventory-item-card:hover .inventory-item-image img {
-  transform: scale(1.1);
-}
-
-.equipped-badge-inv {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: var(--neon-pink);
-  color: #fff;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-}
-
-.rarity-badge-inv {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  backdrop-filter: blur(4px);
-}
-
-.rarity-badge-inv.rarity-common { background: rgba(128, 128, 128, 0.8); color: #fff; }
-.rarity-badge-inv.rarity-rare { background: rgba(74, 158, 255, 0.8); color: #fff; }
-.rarity-badge-inv.rarity-epic { background: rgba(157, 78, 221, 0.8); color: #fff; }
-.rarity-badge-inv.rarity-legendary { background: rgba(255, 215, 0, 0.8); color: #000; box-shadow: 0 0 10px rgba(255, 215, 0, 0.5); }
-
-.inventory-item-card h4 {
-  color: var(--text-main);
-  margin: 10px 0 5px;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.item-description {
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  margin: 5px 0 15px;
-  min-height: 40px;
-  line-height: 1.4;
-}
-
-.equip-btn, .unequip-btn {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 12px;
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 1px;
-}
-
-.equip-btn {
-  background: linear-gradient(45deg, #2196F3, #21CBF3);
-  box-shadow: 0 4px 15px rgba(33, 203, 243, 0.3);
-}
-
-.equip-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(33, 203, 243, 0.4);
-}
-
-.unequip-btn {
-  background: rgba(255, 71, 87, 0.2);
-  border: 1px solid #ff4757;
-  color: #ff4757;
-}
-
-.unequip-btn:hover {
-  background: #ff4757;
+.xp-circle {
+  background: var(--neon-purple);
   color: white;
-}
-
-.profile-header-section {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.profile-avatar-container {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  flex-shrink: 0;
-}
-
-.profile-avatar {
-  width: 100%;
-  height: 100%;
+  padding: 5px 10px;
   border-radius: 50%;
-  overflow: hidden;
-  position: relative;
+  font-weight: bold;
+  font-size: 0.8rem;
 }
 
-.profile-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.avatar-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
+.btn-cyber {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 8px 20px;
+  margin-left: 10px;
   cursor: pointer;
+  transition: 0.3s;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.btn-cyber:hover {
+  background: var(--neon-purple);
+  border-color: var(--neon-purple);
+  box-shadow: 0 0 15px var(--neon-purple);
 }
 
-.profile-avatar:hover .avatar-overlay {
-  opacity: 1;
-}
-
-.hidden-input {
-  display: none;
-}
-
-.profile-info h1 {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-
-.profile-title {
-  color: #aaa;
-  margin-bottom: 16px;
-}
-
-.profile-stats {
-  display: flex;
-  gap: 20px;
-}
-
-.stat-item {
-  color: #ccc;
-}
-
-.profile-nav ul {
-  list-style: none;
-  display: flex;
-  gap: 20px;
-  margin: 0;
-  padding: 0;
-}
-
-.profile-nav a {
-  padding: 12px 20px;
-  color: #aaa;
-  text-decoration: none;
-  border-bottom: 3px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.profile-nav a.active {
-  color: #4a9eff;
-  border-bottom-color: #4a9eff;
-}
-
-.profile-main {
-  padding: 30px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.about-section {
+/* GRID LAYOUT */
+.cyber-grid {
   display: grid;
   grid-template-columns: 1fr 350px;
-  gap: 30px;
-}
-
-.profile-section {
-  background: #2a2a2a;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.profile-section h3 {
-  margin-bottom: 16px;
-  font-size: 1.3rem;
-}
-
-.friends-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.friend-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid #3a3a3a;
-}
-
-.friend-item:last-child {
-  border-bottom: none;
-}
-
-.friend-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.friend-name {
-  flex: 1;
-}
-
-.friend-elo {
-  color: #aaa;
-  font-size: 0.9rem;
-}
-
-.info-detail .info-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid #3a3a3a;
-}
-
-.info-label {
-  color: #aaa;
-}
-
-.badges ul {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  list-style: none;
-  padding: 0;
-}
-
-.badges img {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 8px;
-}
-
-.recent-game {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.recent-game img {
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 6px;
-}
-
-.recent-game .game-info h3 {
-  font-size: 1rem;
-  margin-bottom: 6px;
-}
-
-.skills-list {
-  list-style: none;
-  padding: 0;
-}
-
-.skills-list li {
-  padding: 8px 0;
-  color: #ccc;
-}
-
-/* Inventory */
-.inventory-section {
-  width: 100%;
-}
-
-.inventory-filters {
-  margin-bottom: 20px;
-}
-
-.inventory-filters select {
-  padding: 8px 12px;
-  background: #2a2a2a;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #fff;
-}
-
-.inventory-items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 20px;
 }
 
-.inventory-item-card {
-  background: #1a1a1a;
-  border: 2px solid #333;
-  border-radius: 8px;
-  padding: 15px;
-  text-align: center;
-  transition: transform 0.2s, border-color 0.2s;
+.main-col, .sidebar-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.inventory-item-card:hover {
-  transform: translateY(-5px);
-  border-color: #4a9eff;
-}
-
-.inventory-item-card.equipped {
-  border-color: #00ff00;
-}
-
-.inventory-item-image {
-  position: relative;
-  width: 100%;
-  height: 150px;
-  margin-bottom: 10px;
+.cyber-panel {
+  background: rgba(20, 15, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   overflow: hidden;
-  background: #0a0a0a;
 }
 
-.inventory-item-image img {
-  width: 100%;
+.panel-header {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex; justify-content: space-between;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  color: #ddd;
+}
+
+/* XP BAR */
+.xp-container { padding: 20px; }
+.xp-bar {
+  height: 12px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.xp-fill {
   height: 100%;
-  object-fit: cover;
+  background: linear-gradient(90deg, var(--neon-purple), var(--neon-cyan));
+  box-shadow: 0 0 10px var(--neon-purple);
+}
+.xp-stats {
+  display: flex; justify-content: space-between;
+  font-size: 0.9rem; color: var(--text-dim);
 }
 
-.equipped-badge-inv {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  background: #00ff00;
-  color: #000;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: bold;
+/* FAVORITES */
+.favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  padding: 20px;
 }
-
-.rarity-badge-inv {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: bold;
-  text-transform: uppercase;
+.fav-game-card {
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: 0.3s;
 }
-
-.rarity-badge-inv.rarity-common { background: #808080; color: #fff; }
-.rarity-badge-inv.rarity-rare { background: #4a9eff; color: #fff; }
-.rarity-badge-inv.rarity-epic { background: #9d4edd; color: #fff; }
-.rarity-badge-inv.rarity-legendary { background: #ffd700; color: #000; }
-
-.inventory-item-card h4 {
-  color: #fff;
-  margin: 10px 0 5px;
-  font-size: 14px;
+.fav-game-card:hover {
+  border-color: var(--neon-cyan);
+  transform: scale(1.02);
 }
-
-.item-description {
-  color: #aaa;
-  font-size: 12px;
-  margin: 5px 0;
-  min-height: 30px;
+.fav-game-card img { width: 100%; height: 100%; object-fit: cover; }
+.game-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
+  padding: 10px;
+  font-size: 0.8rem;
+  opacity: 0; transition: 0.3s;
 }
+.fav-game-card:hover .game-overlay { opacity: 1; }
 
-.equip-btn, .unequip-btn {
+/* FEED */
+.feed-list { padding: 20px; }
+.feed-item {
+  display: flex; gap: 15px;
+  margin-bottom: 25px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding-bottom: 20px;
+}
+.feed-avatar img { width: 40px; height: 40px; border-radius: 4px; border: 1px solid var(--neon-purple); }
+.feed-content { flex: 1; }
+.feed-text { margin-bottom: 10px; font-size: 0.95rem; }
+.user-link { color: var(--neon-cyan); font-weight: bold; }
+.game-link { color: var(--neon-pink); font-weight: bold; }
+.feed-media {
   width: 100%;
-  padding: 8px;
-  margin-top: 10px;
-  border: none;
-  border-radius: 4px;
-  color: #fff;
-  font-weight: bold;
-  cursor: pointer;
-  transition: background 0.2s;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 10px;
+}
+.feed-media img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
+.play-btn {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 2rem; color: white; opacity: 0.8;
+}
+.feed-actions { display: flex; gap: 20px; color: var(--text-dim); font-size: 1.1rem; }
+.feed-actions i:hover { color: white; cursor: pointer; }
+
+/* SIDEBAR ITEMS */
+.badges-row {
+  display: flex; gap: 10px; padding: 20px; flex-wrap: wrap;
+}
+.badge-icon {
+  width: 40px; height: 40px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--neon-cyan);
+}
+.badge-icon img { width: 100%; height: 100%; object-fit: contain; }
+
+.friends-list, .groups-list, .quick-links { padding: 20px; }
+.friend-item, .group-item {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 15px;
+}
+.friend-pic { width: 32px; height: 32px; border-radius: 4px; }
+.friend-info, .group-info { flex: 1; display: flex; flex-direction: column; }
+.f-name, .g-name { font-weight: bold; font-size: 0.9rem; color: var(--neon-cyan); }
+.f-status, .g-meta { font-size: 0.75rem; color: var(--text-dim); }
+.f-level { 
+  background: #333; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; 
+}
+.group-icon {
+  width: 32px; height: 32px; background: var(--neon-pink); 
+  display: flex; align-items: center; justify-content: center; border-radius: 4px;
 }
 
-.equip-btn {
-  background: #4a9eff;
+.quick-links li {
+  list-style: none; padding: 8px 0; color: var(--text-dim); cursor: pointer; transition: 0.2s;
 }
+.quick-links li:hover { color: white; padding-left: 5px; }
 
-.equip-btn:hover {
-  background: #3a8eef;
+/* INVENTORY */
+.inventory-mode .full-width { grid-column: 1 / -1; }
+.inventory-content { padding: 20px; }
+.cyber-select {
+  background: #000; color: white; padding: 10px; border: 1px solid #333; width: 200px;
 }
-
-.unequip-btn {
-  background: #ff4444;
+.inv-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px;
 }
+.inv-card {
+  background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; text-align: center;
+  border: 1px solid transparent;
+}
+.inv-card.equipped { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(5, 217, 232, 0.2); }
+.inv-card img { width: 100%; height: 100px; object-fit: contain; margin-bottom: 10px; }
+.inv-card button {
+  width: 100%; padding: 5px; margin-top: 5px; background: #333; border: none; color: white; cursor: pointer;
+}
+.inv-card button.unequip { background: var(--neon-pink); }
 
-.unequip-btn:hover {
-  background: #cc3333;
+@media (max-width: 1000px) {
+  .cyber-grid { grid-template-columns: 1fr; }
+  .favorites-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
