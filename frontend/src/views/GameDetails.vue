@@ -2,6 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import axios from 'axios'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const route = useRoute()
 const gameId = route.params.id as string
@@ -252,10 +254,10 @@ const purchaseGame = async () => {
         <div v-else-if="game" class="details-content">
             <!-- Header Section -->
             <div class="game-header">
-                <img :src="game.imageUrl || '/games/default-game.png'" 
+                <img :src="game.imageUrl || defaultGameImg" 
                      :alt="game.gameName"
                      class="game-banner"
-                     @error="($event.target as HTMLImageElement).src='/games/default-game.png'">
+                     @error="($event.target as HTMLImageElement).src=defaultGameImg">
                 
                 <div class="header-overlay">
                     <div class="header-content">

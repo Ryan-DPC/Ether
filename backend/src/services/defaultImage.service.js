@@ -29,7 +29,7 @@ class DefaultImageService {
         // Upload local default image
         // Path is relative to backend/src/services/
         // File is now in backend root (backend/default-game.png) to be accessible in Docker
-        const localPath = path.resolve(__dirname, '../../default-game.png');
+        const localPath = path.resolve(__dirname, '../../public/default-game.svg');
         try {
             const data = await fs.readFile(localPath);
             await cloudinary.uploadBuffer(data, 'default-game', {

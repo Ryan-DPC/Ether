@@ -2,8 +2,11 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useGameStore } from '../stores/gameStore'
 import { useRouter } from 'vue-router'
-import defaultGameImg from '@/assets/images/default-game.png'
-import heroBg from '@/assets/images/hero-bg.jpg'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
+import heroBg from '@/assets/images/hero-bg.svg'
+import heroBg2 from '@/assets/images/hero-bg-2.svg'
+import heroBg3 from '@/assets/images/hero-bg-3.svg'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -24,14 +27,14 @@ const slides = [
     id: 2,
     title: 'CYBER LEGENDS:\nARENA',
     desc: 'Join the ultimate battle for supremacy in the neon-soaked arena.',
-    image: defaultGameImg, // Placeholder, ideally different
+    image: heroBg2,
     badge: 'NEW SEASON'
   },
   {
     id: 3,
     title: 'NEON RACER:\nOVERDRIVE',
     desc: 'High-speed racing through the digital cityscape. Customize your ride.',
-    image: defaultGameImg, // Placeholder
+    image: heroBg3,
     badge: 'EARLY ACCESS'
   }
 ]
@@ -142,7 +145,7 @@ const categories = [
         <section class="discover-section">
           <div class="section-header">
             <h2>
-              <!-- <img src="@/assets/images/sakura-branch.png" alt="Sakura" class="title-decoration"> -->
+              <!-- <img src="@/assets/images/sakura-branch.svg" alt="Sakura" class="title-decoration"> -->
               DISCOVER
             </h2>
           </div>
@@ -314,6 +317,7 @@ const categories = [
   text-transform: uppercase;
   white-space: pre-line;
   background: linear-gradient(to right, #fff, #b0b9c3);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 20px rgba(255,255,255,0.1));

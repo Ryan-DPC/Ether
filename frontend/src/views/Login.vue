@@ -37,7 +37,7 @@ const handleLogin = async () => {
 
         <div class="login-card">
             <div class="logo-header">
-                <img src="@/assets/images/Logo.jpg" alt="Ether" class="login-logo" />
+                <img src="@/assets/images/Logo.svg" alt="Ether" class="login-logo" />
                 <h1>Welcome Back</h1>
                 <p class="subtitle">Enter the Ether</p>
             </div>

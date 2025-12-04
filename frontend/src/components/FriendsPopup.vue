@@ -221,7 +221,7 @@ function closePopup() {
           >
             <div class="friend-info">
               <div class="friend-avatar">
-                <img :src="friend.profile_pic || '/assets/images/default-game.png'" :alt="friend.username">
+                <img :src="friend.profile_pic || '/assets/images/default-game.svg'" :alt="friend.username">
                 <span 
                   class="status-dot" 
                   :style="{ backgroundColor: getStatusColor(friend.status) }"
@@ -285,7 +285,7 @@ function closePopup() {
           >
             <RouterLink :to="`/profile/${request.user_id}`" class="request-link" @click="friendsStore.togglePopup()">
               <img 
-                :src="request.profile_pic || '/assets/images/default-game.png'" 
+                :src="request.profile_pic || '/assets/images/default-game.svg'" 
                 :alt="request.username"
                 class="request-avatar"
               >

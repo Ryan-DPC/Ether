@@ -2,6 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useItemStore } from '../stores/itemStore'
 import { useUserStore } from '../stores/userStore'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const itemStore = useItemStore()
 const userStore = useUserStore()
@@ -100,7 +102,7 @@ const equipItem = async (itemId: string) => {
         <div v-else class="items-grid">
           <div v-for="item in itemStore.storeItems" :key="item.id" class="item-card">
             <div class="card-preview">
-              <img :src="item.image_url || '/games/default-game.png'">
+              <img :src="item.image_url || defaultGameImg">
               <div class="rarity-tag" :class="item.rarity">{{ item.rarity }}</div>
               <div v-if="item.owned" class="owned-overlay"><i class="fas fa-check"></i> Owned</div>
             </div>

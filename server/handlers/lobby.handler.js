@@ -59,7 +59,7 @@ module.exports = (io, socket) => {
         const { userId, lobbyId } = payload;
         const fromUser = {
             id: socket.userId,
-            username: socket.username || socket.data.name || 'Unknown'
+            username: socket.data.name || socket.username || 'Unknown'
         };
 
         console.log(`[lobby.handler] Invite from ${fromUser.id} to ${userId} for lobby ${lobbyId}`);

@@ -135,7 +135,7 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     // Check if we have a token but not authenticated yet
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
     if (token && !userStore.isAuthenticated) {
         // Token exists, try to fetch profile
         try {

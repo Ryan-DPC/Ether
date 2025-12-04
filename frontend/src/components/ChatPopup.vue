@@ -147,7 +147,7 @@ watch(() => props.friend, () => {
   <div class="chat-popup" :style="{ right: position.right + 'px', bottom: position.bottom + 'px' }">
     <div class="popup-header" @mousedown="startDrag">
       <div class="header-info">
-        <img :src="friend.profile_pic || '/assets/images/default-game.png'" class="avatar-small">
+        <img :src="friend.profile_pic || '/assets/images/default-game.svg'" class="avatar-small">
         <div class="user-details">
             <span class="username">{{ friend.username }}</span>
             <span class="status" :class="friend.status">{{ friend.status }}</span>

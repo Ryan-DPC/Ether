@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useFriendsStore } from '../stores/friendsStore'
+import { useToastStore } from '../stores/toastStore'
 
 const friendsStore = useFriendsStore()
-const activeTab = ref('friends') // 'friends', 'requests', 'groups'
+const toastStore = useToastStore()
+const activeTab = ref('friends') // 'friends', 'requests', 'groups', 'add_friend'
 const searchQuery = ref('')
+const addFriendQuery = ref('')
+const isSearching = ref(false)
 
 onMounted(async () => {
   await friendsStore.fetchFriends()
@@ -14,16 +18,33 @@ onMounted(async () => {
 const handleAccept = async (requestId: string) => {
   try {
     await friendsStore.acceptFriendRequest(requestId)
+    toastStore.success('Friend request accepted')
   } catch (e) {
-    alert('Error accepting request')
+    toastStore.error('Error accepting request')
   }
 }
 
 const handleReject = async (requestId: string) => {
   try {
     await friendsStore.rejectFriendRequest(requestId)
+    toastStore.info('Friend request rejected')
   } catch (e) {
-    alert('Error rejecting request')
+    toastStore.error('Error rejecting request')
+  }
+}
+
+const handleAddFriend = async () => {
+  if (!addFriendQuery.value.trim()) return
+  
+  isSearching.value = true
+  try {
+    await friendsStore.sendFriendRequest(addFriendQuery.value)
+    toastStore.success(`Friend request sent to ${addFriendQuery.value}`)
+    addFriendQuery.value = ''
+  } catch (e: any) {
+    toastStore.error(e.message || 'Failed to send friend request')
+  } finally {
+    isSearching.value = false
   }
 }
 </script>
@@ -59,9 +80,12 @@ const handleReject = async (requestId: string) => {
           <button :class="{ active: activeTab === 'groups' }" @click="activeTab = 'groups'">
             <i class="fas fa-users"></i> Groups
           </button>
+          <button :class="{ active: activeTab === 'add_friend' }" @click="activeTab = 'add_friend'">
+            <i class="fas fa-search-plus"></i> Add
+          </button>
         </div>
 
-        <div class="search-box">
+        <div class="search-box" v-if="activeTab !== 'add_friend'">
           <i class="fas fa-search"></i>
           <input v-model="searchQuery" placeholder="Filter...">
         </div>
@@ -108,6 +132,18 @@ const handleReject = async (requestId: string) => {
             <i class="fas fa-users-slash"></i>
             <p>No groups joined yet.</p>
             <button class="btn-neon-sm">Discover Groups</button>
+          </div>
+
+          <!-- Add Friend Tab -->
+          <div v-if="activeTab === 'add_friend'" class="add-friend-section">
+            <div class="search-box-large">
+              <input v-model="addFriendQuery" placeholder="Enter username#1234" @keyup.enter="handleAddFriend">
+              <button @click="handleAddFriend" :disabled="isSearching" class="btn-neon-sm">
+                <i class="fas fa-paper-plane" v-if="!isSearching"></i>
+                <i class="fas fa-spinner fa-spin" v-else></i>
+              </button>
+            </div>
+            <p class="hint-text">Enter the full username with discriminator (e.g., User#1234) to send a friend request.</p>
           </div>
         </div>
       </div>
@@ -284,5 +320,20 @@ const handleReject = async (requestId: string) => {
 }
 .icon-circle i { font-size: 2.5rem; color: #ff7eb3; }
 .empty-chat-state h2 { color: white; margin-bottom: 10px; }
+.add-friend-section {
+  padding: 20px 0;
+  display: flex; flex-direction: column; gap: 15px;
+}
+.search-box-large {
+  display: flex; gap: 10px;
+}
+.search-box-large input {
+  flex: 1; padding: 12px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: white;
+}
+.hint-text {
+  font-size: 0.85rem; color: #777; text-align: center;
+}
 
 </style>

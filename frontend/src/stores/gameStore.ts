@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
-import neonRacerImg from '@/assets/images/games/img.png'
-import defaultGameImg from '@/assets/images/default-game.png'
+
+const BACKEND_URL = 'http://localhost:3001'
 
 const MOCK_GAMES = [
     {
@@ -9,7 +9,7 @@ const MOCK_GAMES = [
         game_name: 'Neon Racer',
         genre: 'Racing',
         price: 15,
-        image_url: neonRacerImg,
+        image_url: `${BACKEND_URL}/public/games/neon-racer.svg`,
         description: 'High speed racing in a neon city.'
     },
     {
@@ -17,7 +17,7 @@ const MOCK_GAMES = [
         game_name: 'Cyber Legends',
         genre: 'MOBA',
         price: 0,
-        image_url: defaultGameImg,
+        image_url: `${BACKEND_URL}/public/default-game.svg`,
         description: '5v5 strategic combat.'
     },
     {
@@ -25,7 +25,7 @@ const MOCK_GAMES = [
         game_name: 'Space Odyssey',
         genre: 'Adventure',
         price: 25,
-        image_url: defaultGameImg,
+        image_url: `${BACKEND_URL}/public/default-game.svg`,
         description: 'Explore the galaxy.'
     },
     {
@@ -33,7 +33,7 @@ const MOCK_GAMES = [
         game_name: 'Pixel Brawler',
         genre: 'Fighting',
         price: 5,
-        image_url: defaultGameImg,
+        image_url: `${BACKEND_URL}/public/default-game.svg`,
         description: 'Retro style fighting game.'
     }
 ]

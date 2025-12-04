@@ -6,7 +6,8 @@ import { useFriendsStore } from '../stores/friendsStore'
 import { useUserStore } from '../stores/userStore'
 import axios from 'axios'
 import InstallPathSelector from '../components/InstallPathSelector.vue'
-import defaultGameImg from '@/assets/images/default-game.png'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const gameStore = useGameStore()
 const categoryStore = useCategoryStore()

@@ -20,7 +20,7 @@ class GamesService {
                     if (game.folder_name === 'ether-chess') {
                         const baseUrl = process.env.API_URL || 'http://localhost:3001';
                         downloadUrl = `${baseUrl}/public/games/etherchess.zip`;
-                        game.image_url = `${baseUrl}/public/games/etherchess.png`;
+                        game.image_url = `${baseUrl}/public/games/etherchess.svg`;
                         console.log('[Games] Overriding URLs for Ether Chess to local');
                     }
 
@@ -51,7 +51,7 @@ class GamesService {
                     game_name: 'Ether Chess',
                     slug: 'ether-chess',
                     description: 'A classic chess game for Ether.',
-                    image_url: `${baseUrl}/public/games/etherchess.png`,
+                    image_url: `${baseUrl}/public/games/etherchess.svg`,
                     downloadUrl: `${baseUrl}/public/games/etherchess.zip`,
                     version: '1.0.0',
                     isMultiplayer: true,
@@ -70,7 +70,7 @@ class GamesService {
                     game_name: 'Blackjack',
                     slug: 'blackjack',
                     description: 'Classic casino card game.',
-                    image_url: `${baseUrl}/public/games/blackjack.png`, // Assuming image exists or will be handled
+                    image_url: `${baseUrl}/public/games/blackjack.svg`, // Assuming image exists or will be handled
                     downloadUrl: `${baseUrl}/public/games/blackjack.zip`,
                     version: '1.0.0',
                     isMultiplayer: false,
@@ -102,7 +102,7 @@ class GamesService {
                     if (folderName === 'ether-chess') {
                         const baseUrl = process.env.API_URL || 'http://localhost:3001';
                         downloadUrl = `${baseUrl}/public/games/etherchess.zip`;
-                        game.image_url = `${baseUrl}/public/games/etherchess.png`;
+                        game.image_url = `${baseUrl}/public/games/etherchess.svg`;
                     }
 
                     return {

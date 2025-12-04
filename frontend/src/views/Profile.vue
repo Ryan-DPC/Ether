@@ -3,6 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { useUserStore } from '../stores/userStore'
 import { useItemStore } from '../stores/itemStore'
 import axios from 'axios'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const userStore = useUserStore()
 const itemStore = useItemStore()
@@ -104,7 +106,7 @@ const unequipItem = async (itemId: string) => {
         <div class="header-content">
           <div class="avatar-section">
             <div class="cyber-avatar">
-              <img :src="userStore.user?.profile_pic || '/assets/images/default-game.png'">
+              <img :src="userStore.user?.profile_pic || defaultGameImg">
               <div class="avatar-glow"></div>
               <div v-if="isOwnProfile" class="edit-overlay" @click="triggerFileInput">
                 <i class="fas fa-camera"></i>
@@ -171,7 +173,7 @@ const unequipItem = async (itemId: string) => {
                 :key="index" 
                 class="fav-game-card"
               >
-                <img :src="game.game_id?.image_url || '/assets/images/default-game.png'">
+                <img :src="game.game_id?.image_url || defaultGameImg">
                 <div class="game-overlay">
                   <span>{{ game.game_name || game.game_id?.name }}</span>
                 </div>
@@ -190,7 +192,7 @@ const unequipItem = async (itemId: string) => {
             <div class="feed-list">
               <div class="feed-item" v-for="game in recentGames" :key="game._id">
                 <div class="feed-avatar">
-                  <img :src="userStore.user?.profile_pic || '/assets/images/default-game.png'">
+                  <img :src="userStore.user?.profile_pic || defaultGameImg">
                 </div>
                 <div class="feed-content">
                   <div class="feed-text">
@@ -199,7 +201,7 @@ const unequipItem = async (itemId: string) => {
                     <span class="game-link">{{ game.game_name || game.game_id?.name }}</span>
                   </div>
                   <div class="feed-media">
-                    <img :src="game.game_id?.image_url || '/assets/images/default-game.png'">
+                    <img :src="game.game_id?.image_url || defaultGameImg">
                   </div>
                   <div class="feed-actions">
                     <i class="far fa-smile"></i>
@@ -239,7 +241,7 @@ const unequipItem = async (itemId: string) => {
             </div>
             <div class="friends-list">
               <div v-for="friend in friends" :key="friend.id" class="friend-item">
-                <img :src="friend.profile_pic || '/assets/images/default-game.png'" class="friend-pic">
+                <img :src="friend.profile_pic || defaultGameImg" class="friend-pic">
                 <div class="friend-info">
                   <span class="f-name">{{ friend.username }}</span>
                   <span class="f-status">{{ friend.status || 'Online' }}</span>

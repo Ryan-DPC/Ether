@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
         level: { type: Number, default: 1 },
         status_message: { type: String, default: 'Online' },
         favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }],
+        friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
         resetPasswordToken: { type: String, default: null },
         resetPasswordExpires: { type: Date, default: null }
     },
@@ -177,6 +178,16 @@ class Users {
         }).lean();
         if (!doc) return null;
         return { ...doc, id: doc._id.toString() };
+    }
+
+    static async getFriends(userId) {
+        const doc = await UserModel.findById(userId, { friends: 1 }).populate('friends', 'username socket_id').lean();
+        if (!doc || !doc.friends) return [];
+        return doc.friends.map(f => ({
+            id: f._id.toString(),
+            username: f.username,
+            socketId: f.socket_id
+        }));
     }
 }
 

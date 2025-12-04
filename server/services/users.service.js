@@ -2,31 +2,20 @@ const Users = require('../models/user.model');
 
 class UsersService {
     static async saveSocketId(userId, socketId) {
-        try {
-            // Update socketId for the user identified by userId
-            await Users.saveSocketId(userId, socketId);
-        } catch (error) {
-            console.error('Erreur dans UserService.saveSocketId :', error);
-            throw error;
-        }
+        if (userId === 'backend-service') return;
+        return Users.saveSocketId(userId, socketId);
     }
 
     static async getUserBySocketId(socketId) {
-        try {
-            return await Users.getUserBySocketId(socketId);
-        } catch (error) {
-            console.error('Erreur dans UserService.getUserBySocketId :', error);
-            throw error;
-        }
+        return Users.getUserBySocketId(socketId);
     }
 
     static async removeSocketId(socketId) {
-        try {
-            await Users.removeSocketId(socketId);
-        } catch (error) {
-            console.error('Erreur dans UserService.removeSocketId :', error);
-            throw error;
-        }
+        return Users.removeSocketId(socketId);
+    }
+
+    static async getFriends(userId) {
+        return Users.getFriends(userId);
     }
 }
 

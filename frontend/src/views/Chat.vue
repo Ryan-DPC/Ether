@@ -149,7 +149,7 @@ const formatTime = (date: string) => {
       </RouterLink>
       <div v-if="user" class="friend-info">
         <img 
-          :src="user.profile_pic || '/assets/images/default-game.png'" 
+          :src="user.profile_pic || '/assets/images/default-game.svg'" 
           :alt="user.username"
           class="friend-avatar"
         >

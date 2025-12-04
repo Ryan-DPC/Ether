@@ -11,7 +11,7 @@ module.exports = (socket, next) => {
         }
 
         // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-here');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         // Attach user info to socket
         // Normalize to socket.user as per my previous implementation plan, or keep socket.userId?

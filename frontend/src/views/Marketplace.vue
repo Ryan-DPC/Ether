@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const marketplaceStore = useMarketplaceStore()
 
@@ -162,7 +164,7 @@ watch(selectedGameForSale, () => {
             <div v-else class="listings-grid">
                 <div v-for="game in marketplaceStore.usedGames" :key="game.ownership_token" class="listing-card">
                     <div class="card-img">
-                        <img :src="game.image_url || '/games/default-game.png'">
+                        <img :src="game.image_url || defaultGameImg">
                         <div class="price-tag">{{ game.asking_price }} CHF</div>
                     </div>
                     <div class="card-body">
@@ -181,7 +183,7 @@ watch(selectedGameForSale, () => {
             <div class="listings-grid">
                 <div v-for="sale in marketplaceStore.activeSales" :key="sale.ownership_token" class="listing-card my-listing">
                     <div class="card-img">
-                        <img :src="sale.image_url || '/games/default-game.png'">
+                        <img :src="sale.image_url || defaultGameImg">
                         <div class="price-tag">{{ sale.asking_price }} CHF</div>
                     </div>
                     <div class="card-body">

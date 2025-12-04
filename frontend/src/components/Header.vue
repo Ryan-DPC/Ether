@@ -15,7 +15,7 @@ const isMenuOpen = ref(false)
 
 // Computed property for profile picture to avoid infinite reload
 const profilePicUrl = computed(() => {
-  return userStore.user?.profile_pic || '/assets/images/default-game.png'
+  return userStore.user?.profile_pic || '/assets/images/default-game.svg'
 })
 
 const formattedUsername = computed(() => {

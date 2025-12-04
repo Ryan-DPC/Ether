@@ -29,6 +29,21 @@ class AuthService {
                 const result = await cloudinaryService.uploadBuffer(file.buffer, `users/${username}/profile_pic`);
                 profile_pic = result.url;
             }
+        } else {
+            // Assign random default avatar
+            const defaultAvatars = [
+                'avatar_blue.svg',
+                'avatar_green.svg',
+                'avatar_minimal_user.svg',
+                'avatar_orange.svg',
+                'avatar_purple.svg',
+                'avatar_red.svg'
+            ];
+            const randomAvatar = defaultAvatars[Math.floor(Math.random() * defaultAvatars.length)];
+            // Construct URL based on backend configuration
+            // Assuming the backend serves /public/avatars/
+            const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+            profile_pic = `${backendUrl}/public/avatars/${randomAvatar}`;
         }
 
         const newUser = await Users.createUser({ username: fullUsername, email, password, profile_pic });

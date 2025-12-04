@@ -76,7 +76,7 @@ const handleRegister = async () => {
 
         <div class="register-card">
             <div class="logo-header">
-                <img src="@/assets/images/Logo.jpg" alt="Ether" class="register-logo" />
+                <img src="@/assets/images/Logo.svg" alt="Ether" class="register-logo" />
                 <h1>Join Ether</h1>
                 <p class="subtitle">Create your account</p>
             </div>
