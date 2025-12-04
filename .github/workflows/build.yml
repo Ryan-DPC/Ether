@@ -15,10 +15,10 @@ jobs:
         working-directory: ./frontend
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Use Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
@@ -36,7 +36,7 @@ jobs:
         VITE_WEBSOCKET_URL: ${{ secrets.VITE_WEBSOCKET_URL || 'ws://localhost:3002' }}
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Ether-Windows-Installer
         path: frontend/dist/electron/*.exe
