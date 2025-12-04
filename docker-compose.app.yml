@@ -13,6 +13,7 @@ services:
       - REDIS_URL=redis://ether_redis:6379
       - WS_URL=http://ether_server:3002
       - CENTRAL_WEBSOCKET_URL=http://ether_server:3002
+      - PORT=3001
     networks:
       - ether-net
 

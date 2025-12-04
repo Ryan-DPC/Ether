@@ -29,6 +29,7 @@ services:
     environment:
       - MONGO_URI=mongodb://mongo:27017/ether
       - REDIS_URL=redis://redis:6379
+      - WS_PORT=3002
     depends_on:
       - mongo
       - redis
