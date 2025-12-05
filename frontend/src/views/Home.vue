@@ -281,13 +281,13 @@ const categories = [
 
 .hero-bg {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  object-fit: fill;
+  object-fit: cover;
   object-position: center;
 }
 
 .hero-overlay {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background: linear-gradient(90deg, rgba(18,12,24,0.9) 0%, rgba(18,12,24,0.7) 70%, rgba(18,12,24,0.5) 100%);
+  background: linear-gradient(90deg, rgba(18,12,24,0.8) 0%, rgba(18,12,24,0.6) 70%, rgba(18,12,24,0.3) 100%);
 }
 
 .hero-content {

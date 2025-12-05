@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
         isAdmin: { type: Boolean, default: false },
         tokens: { type: Number, default: 1000 },
         currency: { type: String, enum: ['CHF', 'EUR', 'USD', 'GBP'], default: 'CHF' },
+        language: { type: String, default: 'English' },
         balances: {
             chf: { type: Number, default: 0 },
             eur: { type: Number, default: 0 },
@@ -26,7 +27,18 @@ const userSchema = new mongoose.Schema(
         status_message: { type: String, default: 'Online' },
         favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }],
         resetPasswordToken: { type: String, default: null },
-        resetPasswordExpires: { type: Date, default: null }
+        resetPasswordExpires: { type: Date, default: null },
+        bio: { type: String, default: '' },
+        social_links: {
+            twitter: { type: String, default: '' },
+            discord: { type: String, default: '' },
+            website: { type: String, default: '' }
+        },
+        notification_preferences: {
+            email_updates: { type: Boolean, default: true },
+            push_notifications: { type: Boolean, default: true },
+            marketing_emails: { type: Boolean, default: false }
+        }
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
@@ -98,7 +110,8 @@ class Users {
         const doc = await UserModel.findById(userId, {
             username: 1, tokens: 1, elo: 1, profile_pic: 1, profile_picture: 1,
             currency: 1, balances: 1, isAdmin: 1, created_at: 1,
-            xp: 1, level: 1, status_message: 1, favorite_games: 1
+            xp: 1, level: 1, status_message: 1, favorite_games: 1,
+            bio: 1, social_links: 1, notification_preferences: 1
         }).populate('favorite_games', 'name image_url').lean();
         if (!doc) return null;
         const user = { id: doc._id.toString(), ...doc };

@@ -31,6 +31,21 @@ export const useUserStore = defineStore('user', {
                 this.isLoading = false
             }
         },
+        async updateProfile(data: any) {
+            this.isLoading = true
+            try {
+                const response = await axios.put('/users/me', data)
+                if (response.data && response.data.user) {
+                    this.user = response.data.user
+                    return response.data
+                }
+            } catch (error) {
+                console.error('Failed to update profile:', error)
+                throw error
+            } finally {
+                this.isLoading = false
+            }
+        },
         async login(identifier: string, password: string, remember: boolean = false) {
             this.isLoading = true
             try {
