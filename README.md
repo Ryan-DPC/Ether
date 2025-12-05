@@ -39,7 +39,7 @@ Ce projet utilise **Docker** pour simplifier l'installation et garantir un envir
     docker-compose -f docker-compose.app.yml up -d --build
     ```
 
-3.  **Génération du Token Service (Important)**
+3.  **Génération du Token Service (Si Problème)**
     Pour que le backend puisse se connecter au serveur WebSocket central, un token d'authentification est requis.
     *   Assurez-vous que les conteneurs sont lancés (étape 2).
     *   Générez le token via Docker (pas besoin d'installer Node.js localement) :

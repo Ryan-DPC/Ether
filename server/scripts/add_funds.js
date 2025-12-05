@@ -1,7 +1,8 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const mongoose = require('mongoose');
-const User = require('../models/user.model');
+require('../models/user.model');
+const User = mongoose.model('User');
 const connectDB = require('../config/db');
 
 const addFunds = async () => {
@@ -11,18 +12,22 @@ const addFunds = async () => {
 
         console.log('Connected to DB');
 
-        const usernames = ['test#test', 'Ryan#Test'];
         const amount = 100;
+        const users = await User.find({});
 
-        for (const username of usernames) {
-            const user = await User.findOne({ username });
-            if (user) {
-                user.balances.chf += amount;
-                await user.save();
-                console.log(`Added ${amount} CHF to ${username}. New balance: ${user.balances.chf}`);
-            } else {
-                console.log(`User ${username} not found`);
+        console.log(`Found ${users.length} users to update.`);
+
+        for (const user of users) {
+            if (!user.balances) {
+                user.balances = { chf: 0 };
             }
+            if (user.balances.chf === undefined) {
+                user.balances.chf = 0;
+            }
+
+            user.balances.chf += amount;
+            await user.save();
+            console.log(`Added ${amount} CHF to ${user.username}. New balance: ${user.balances.chf}`);
         }
 
         process.exit(0);
