@@ -14,7 +14,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
     process.exit(1);
 }
 
-const PORT = process.env.WS_PORT || 4000;
+const PORT = process.env.WS_PORT || 3002;
 
 // Connect to Database
 connectDB();

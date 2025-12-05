@@ -19,7 +19,7 @@ class SocketService {
         }
 
         // Initialize socket connection to central WebSocket server
-        const socketUrl = import.meta.env.VITE_WEBSOCKET_URL || 'https://server-yi14.onrender.com';
+        const socketUrl = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:3002';
         console.log('🔌 Connecting to socket with token:', token.substring(0, 10) + '...')
         this.socket = io(socketUrl, {
             auth: {
