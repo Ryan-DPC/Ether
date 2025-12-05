@@ -158,6 +158,11 @@ class Users {
     }
 
     static async saveSocketId(userId, socketId) {
+        // Skip if userId is not a valid ObjectId (e.g., 'backend-service')
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            console.warn(`⚠️ Skipping saveSocketId: Invalid ObjectId format: ${userId}`);
+            return 0;
+        }
         const res = await UserModel.updateOne({ _id: userId }, { $set: { socket_id: socketId } });
         return res.modifiedCount;
     }
@@ -181,6 +186,11 @@ class Users {
     }
 
     static async getFriends(userId) {
+        // Skip if userId is not a valid ObjectId (e.g., 'backend-service')
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            console.warn(`⚠️ Skipping getFriends: Invalid ObjectId format: ${userId}`);
+            return [];
+        }
         const doc = await UserModel.findById(userId, { friends: 1 }).populate('friends', 'username socket_id').lean();
         if (!doc || !doc.friends) return [];
         return doc.friends.map(f => ({

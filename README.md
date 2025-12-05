@@ -39,25 +39,16 @@ Ce projet utilise **Docker** pour simplifier l'installation et garantir un envir
     docker-compose -f docker-compose.app.yml up -d --build
     ```
 
-3.  **Génération du Token Service (Si Problème)**
-    Pour que le backend puisse se connecter au serveur WebSocket central, un token d'authentification est requis.
+3.  **Ajouter des Fonds aux Utilisateurs**
+    Pour ajouter des fonds (CHF) à tous les comptes utilisateurs existants, vous pouvez utiliser le script fourni.
     *   Assurez-vous que les conteneurs sont lancés (étape 2).
-    *   Générez le token via Docker (pas besoin d'installer Node.js localement) :
+    *   Exécutez le script via Docker (pas besoin d'installer Node.js localement) :
         ```bash
-        docker-compose -f docker-compose.app.yml exec backend node src/scripts/generate-service-token.js
+        docker-compose -f docker-compose.infra.yml exec server node scripts/add_funds.js
         ```
-        *Note : Si le fichier n'est pas trouvé, vérifiez le chemin ou utilisez : `docker-compose -f docker-compose.app.yml exec backend node /app/src/scripts/generate-service-token.js` selon votre Dockerfile.*
+        *Par défaut, le script ajoute **100 CHF** à chaque utilisateur. Pour modifier ce montant, éditez le fichier `server/scripts/add_funds.js` (ligne 46).*
         
-        **Alternative (si le backend ne tourne pas encore)** :
-        ```bash
-        docker-compose -f docker-compose.app.yml run --rm backend node src/scripts/generate-service-token.js
-        ```
-    *   Copiez le token généré.
-    *   Ajoutez-le dans votre fichier `.env` :
-        ```env
-        WS_CENTRAL_TOKEN=votre_token_ici
-        ```
-    *   Redémarrez le backend : `docker-compose -f docker-compose.app.yml restart backend`
+    *   Le script affichera les utilisateurs mis à jour et leur nouveau solde dans la console.
 
 3.  **Application Desktop (Frontend)**
     Le frontend est une application Electron (Desktop).
