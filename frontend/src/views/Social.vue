@@ -93,6 +93,11 @@ const handleAddFriend = async () => {
         <div class="list-content">
           <!-- Friends List -->
           <div v-if="activeTab === 'friends'" class="friends-list">
+            <div v-if="friendsStore.friends.length === 0" class="empty-state">
+              <i class="fas fa-user-friends"></i>
+              <p>No friends yet</p>
+              <p class="hint-text">Add friends to see them here</p>
+            </div>
             <div v-for="friend in friendsStore.friends" :key="friend.id" class="list-item">
               <div class="avatar-wrapper">
                 <img :src="friend.profile_pic || 'https://via.placeholder.com/40'" alt="Avatar">
@@ -220,14 +225,22 @@ const handleAddFriend = async () => {
 .status-dot.online { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
 
 .nav-tabs {
-  display: flex; padding: 16px 20px 0; gap: 15px;
+  display: flex; padding: 16px 16px 0; gap: 6px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
-  white-space: nowrap;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  /* Hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.nav-tabs::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 .nav-tabs button {
   background: none; border: none; color: #b0b9c3;
-  padding-bottom: 16px; font-weight: 600; cursor: pointer;
-  position: relative; display: flex; align-items: center; gap: 8px;
+  padding: 0 8px 16px; font-weight: 600; cursor: pointer;
+  position: relative; display: flex; align-items: center; gap: 6px;
+  white-space: nowrap; flex-shrink: 0; font-size: 0.85rem;
 }
 .nav-tabs button.active { color: #ff7eb3; }
 .nav-tabs button.active::after {

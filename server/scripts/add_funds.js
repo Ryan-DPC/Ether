@@ -1,9 +1,40 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const mongoose = require('mongoose');
-require('../models/user.model');
-const User = mongoose.model('User');
 const connectDB = require('../config/db');
+
+// Import the user schema to get UserModel
+const userSchema = new mongoose.Schema(
+    {
+        username: { type: String, required: true, unique: true, index: true },
+        password: { type: String, required: false },
+        email: { type: String, required: true, unique: true, index: true },
+        github_id: { type: String, default: null, index: true },
+        github_username: { type: String, default: null },
+        isAdmin: { type: Boolean, default: false },
+        tokens: { type: Number, default: 1000 },
+        currency: { type: String, enum: ['CHF', 'EUR', 'USD', 'GBP'], default: 'CHF' },
+        balances: {
+            chf: { type: Number, default: 0 },
+            eur: { type: Number, default: 0 },
+            usd: { type: Number, default: 0 },
+            gbp: { type: Number, default: 0 },
+        },
+        profile_pic: { type: String, default: null },
+        elo: { type: Number, default: 1600 },
+        socket_id: { type: String, default: null, index: true },
+        xp: { type: Number, default: 0 },
+        level: { type: Number, default: 1 },
+        status_message: { type: String, default: 'Online' },
+        favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }],
+        friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+        resetPasswordToken: { type: String, default: null },
+        resetPasswordExpires: { type: Date, default: null }
+    },
+    { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
+);
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 const addFunds = async () => {
     try {

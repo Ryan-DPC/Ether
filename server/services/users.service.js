@@ -15,6 +15,7 @@ class UsersService {
     }
 
     static async getFriends(userId) {
+        if (userId === 'backend-service') return [];
         return Users.getFriends(userId);
     }
 }

@@ -4,9 +4,12 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+  // Load env from parent directory (project root)
+  const env = loadEnv(mode, path.resolve(__dirname, '..'), '')
 
   return {
+    // Tell Vite to look for .env files in the parent directory
+    envDir: path.resolve(__dirname, '..'),
     plugins: [vue()],
     resolve: {
       alias: {

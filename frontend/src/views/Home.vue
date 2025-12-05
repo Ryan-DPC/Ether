@@ -108,7 +108,7 @@ const categories = [
           <div class="carousel-container">
             <div class="carousel-track" :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
               <div v-for="slide in slides" :key="slide.id" class="hero-card">
-                <div class="hero-bg" :style="{ backgroundImage: `url(${slide.image})` }"></div>
+                <img :src="slide.image" :alt="slide.title" class="hero-bg" />
                 <div class="hero-overlay"></div>
                 <div class="hero-content">
                   <div class="hero-text">
@@ -281,23 +281,25 @@ const categories = [
 
 .hero-bg {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background-size: cover; background-position: center;
+  object-fit: fill;
+  object-position: center;
 }
 
 .hero-overlay {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background: linear-gradient(90deg, rgba(18,12,24,0.95) 0%, rgba(18,12,24,0.6) 50%, transparent 100%);
+  background: linear-gradient(90deg, rgba(18,12,24,0.9) 0%, rgba(18,12,24,0.7) 70%, rgba(18,12,24,0.5) 100%);
 }
 
 .hero-content {
   position: relative; z-index: 2;
   height: 100%;
+  width: 100%;
   display: flex;
   align-items: center;
-  padding: 40px 60px; /* Reduced vertical padding */
+  padding: 40px 60px;
 }
 
-.hero-text { max-width: 600px; }
+.hero-text { width: 100%; max-width: 100%; }
 
 .badge {
   background: linear-gradient(45deg, #ff7eb3, #ff758c);
@@ -315,7 +317,7 @@ const categories = [
   margin: 0 0 16px 0; /* Reduced margin */
   font-weight: 900;
   text-transform: uppercase;
-  white-space: pre-line;
+  white-space: normal;
   background: linear-gradient(to right, #fff, #b0b9c3);
   background-clip: text;
   -webkit-background-clip: text;
@@ -328,7 +330,7 @@ const categories = [
   color: #b0b9c3; 
   margin-bottom: 30px; /* Reduced from 40px */
   line-height: 1.5; 
-  max-width: 450px; 
+  max-width: 80%; 
 }
 
 .hero-actions { display: flex; gap: 16px; }

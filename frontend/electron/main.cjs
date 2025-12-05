@@ -27,71 +27,71 @@ function createWindow() {
     }
 }
 
-// IPC Handler for directory selection
-ipcMain.handle('dialog:openDirectory', async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-        properties: ['openDirectory']
+app.whenReady().then(() => {
+    // IPC Handler for directory selection
+    ipcMain.handle('dialog:openDirectory', async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            properties: ['openDirectory']
+        });
+        if (canceled) {
+            return null;
+        } else {
+            return filePaths[0];
+        }
     });
-    if (canceled) {
-        return null;
-    } else {
-        return filePaths[0];
-    }
-});
 
-// IPC Handlers for Installation
-ipcMain.handle('game:install', async (event, downloadUrl, installPath, folderName, gameId, gameName, version, manifest) => {
-    try {
-        console.log(`[Main] Installing game: ${gameName} (${gameId})`);
+    // IPC Handlers for Installation
+    ipcMain.handle('game:install', async (event, downloadUrl, installPath, folderName, gameId, gameName, version, manifest) => {
+        try {
+            console.log(`[Main] Installing game: ${gameName} (${gameId})`);
 
-        // Setup progress listener
-        const onProgress = (data) => {
-            mainWindow.webContents.send('install:progress', {
+            // Setup progress listener
+            const onProgress = (data) => {
+                mainWindow.webContents.send('install:progress', {
+                    gameId,
+                    gameName,
+                    ...data
+                });
+            };
+
+            const result = await installationService.installGame(downloadUrl, installPath, folderName, version, manifest, onProgress);
+
+            mainWindow.webContents.send('install:complete', {
                 gameId,
                 gameName,
-                ...data
+                path: result.path
             });
-        };
 
-        const result = await installationService.installGame(downloadUrl, installPath, folderName, version, manifest, onProgress);
-
-        mainWindow.webContents.send('install:complete', {
-            gameId,
-            gameName,
-            path: result.path
-        });
-
-        return result;
-    } catch (error) {
-        console.error('[Main] Install error:', error);
-        mainWindow.webContents.send('install:error', {
-            gameId,
-            gameName,
-            error: error.message
-        });
-        throw error;
-    }
-});
-
-ipcMain.handle('game:checkInstalled', async (event, installPath, folderName) => {
-    return await installationService.isGameInstalled(installPath, folderName);
-});
-
-ipcMain.handle('game:uninstall', async (event, installPath, folderName) => {
-    return await installationService.uninstallGame(installPath, folderName);
-});
-
-// IPC Handlers for Launcher
-ipcMain.handle('game:launch', async (event, { installPath, folderName, userData }) => {
-    const onStatusChange = (gameFolderName, status) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('game:status', { folderName: gameFolderName, status });
+            return result;
+        } catch (error) {
+            console.error('[Main] Install error:', error);
+            mainWindow.webContents.send('install:error', {
+                gameId,
+                gameName,
+                error: error.message
+            });
+            throw error;
         }
-    };
-    return await launcherService.launchGame(installPath, folderName, userData, onStatusChange);
-});
+    });
 
-app.whenReady().then(() => {
+    ipcMain.handle('game:checkInstalled', async (event, installPath, folderName) => {
+        return await installationService.isGameInstalled(installPath, folderName);
+    });
+
+    ipcMain.handle('game:uninstall', async (event, installPath, folderName) => {
+        return await installationService.uninstallGame(installPath, folderName);
+    });
+
+    // IPC Handlers for Launcher
+    ipcMain.handle('game:launch', async (event, { installPath, folderName, userData }) => {
+        const onStatusChange = (gameFolderName, status) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('game:status', { folderName: gameFolderName, status });
+            }
+        };
+        return await launcherService.launchGame(installPath, folderName, userData, onStatusChange);
+    });
+
     createWindow();
 
     app.on('activate', () => {
