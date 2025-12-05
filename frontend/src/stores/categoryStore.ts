@@ -10,7 +10,7 @@ export const useCategoryStore = defineStore('category', {
         async fetchCategories() {
             this.isLoading = true
             try {
-                const response = await axios.get('/api/game-categories')
+                const response = await axios.get('/game-categories')
                 this.categories = response.data || []
             } catch (error) {
                 console.error('Failed to fetch categories:', error)
@@ -21,7 +21,7 @@ export const useCategoryStore = defineStore('category', {
         },
         async createCategory(name: string, icon: string = '') {
             try {
-                const response = await axios.post('/api/game-categories', { name, icon })
+                const response = await axios.post('/game-categories', { name, icon })
                 await this.fetchCategories()
                 return response.data
             } catch (error) {
@@ -30,7 +30,7 @@ export const useCategoryStore = defineStore('category', {
         },
         async deleteCategory(categoryId: string) {
             try {
-                await axios.delete(`/api/game-categories/${categoryId}`)
+                await axios.delete(`/game-categories/${categoryId}`)
                 await this.fetchCategories()
             } catch (error) {
                 throw error
@@ -38,7 +38,7 @@ export const useCategoryStore = defineStore('category', {
         },
         async assignGameToCategory(categoryId: string, gameKey: string) {
             try {
-                await axios.post(`/api/game-categories/${categoryId}/assign`, { gameKey })
+                await axios.post(`/game-categories/${categoryId}/assign`, { gameKey })
                 await this.fetchCategories()
             } catch (error) {
                 throw error

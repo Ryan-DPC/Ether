@@ -3,8 +3,13 @@ const path = require('path');
 
 class SlugService {
     constructor() {
-        // Adjust path to point to root games folder from backend/src/services
-        this.slugPath = path.join(__dirname, '../../../../games/slug.json');
+        // Adjust path to point to root games folder
+        // Use environment variable or default to project root/games/slug.json
+        this.slugPath = process.env.SLUG_PATH || path.join(process.cwd(), 'games', 'slug.json');
+
+        // Ensure directory exists
+        const dir = path.dirname(this.slugPath);
+        require('fs').mkdirSync(dir, { recursive: true });
     }
 
     async loadSlug() {

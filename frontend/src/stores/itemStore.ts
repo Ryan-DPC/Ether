@@ -15,7 +15,7 @@ export const useItemStore = defineStore('item', {
                 if (filters.type) params.set('type', filters.type)
                 if (filters.rarity) params.set('rarity', filters.rarity)
 
-                const response = await axios.get(`/api/items/store?${params}`)
+                const response = await axios.get(`/items/store?${params}`)
                 this.storeItems = response.data.items || []
             } catch (error) {
                 console.error('Failed to fetch store items:', error)
@@ -26,7 +26,7 @@ export const useItemStore = defineStore('item', {
         },
         async fetchMyItems() {
             try {
-                const response = await axios.get('/api/items/my-items')
+                const response = await axios.get('/items/my-items')
                 this.myItems = response.data.items || []
             } catch (error) {
                 console.error('Failed to fetch my items:', error)
@@ -35,7 +35,7 @@ export const useItemStore = defineStore('item', {
         },
         async purchaseItem(itemId: string) {
             try {
-                const response = await axios.post('/api/items/purchase', { itemId })
+                const response = await axios.post('/items/purchase', { itemId })
                 await this.fetchMyItems()
                 return response.data
             } catch (error) {
@@ -44,7 +44,7 @@ export const useItemStore = defineStore('item', {
         },
         async equipItem(itemId: string) {
             try {
-                const response = await axios.post('/api/items/equip', { itemId })
+                const response = await axios.post('/items/equip', { itemId })
                 await this.fetchMyItems()
                 return response.data
             } catch (error) {
@@ -53,7 +53,7 @@ export const useItemStore = defineStore('item', {
         },
         async unequipItem(itemId: string) {
             try {
-                const response = await axios.post('/api/items/unequip', { itemId })
+                const response = await axios.post('/items/unequip', { itemId })
                 await this.fetchMyItems()
                 return response.data
             } catch (error) {

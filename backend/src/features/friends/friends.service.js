@@ -75,12 +75,13 @@ class FriendsService {
 
     static async getFriends(userId) {
         const rows = await FriendModel.find({ user_id: userId, status: 'accepted' })
-            .populate('friend_id', { username: 1, profile_pic: 1 })
+            .populate('friend_id', { username: 1, profile_pic: 1, socket_id: 1 })
             .lean();
         return rows.map((r) => ({
             id: r.friend_id._id.toString(),
             username: r.friend_id.username,
-            profile_pic: r.friend_id.profile_pic
+            avatar: r.friend_id.profile_pic, // Map profile_pic to avatar
+            status: r.friend_id.socket_id ? 'online' : 'offline' // Determine status
         }));
     }
 

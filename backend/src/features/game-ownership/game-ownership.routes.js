@@ -15,7 +15,7 @@ router.post('/install', GameOwnershipController.installGame);
 router.get('/marketplace', GameOwnershipController.getMarketplace);
 router.post('/sell', GameOwnershipController.sellGame);
 router.post('/cancel-sale', GameOwnershipController.cancelSale);
-router.post('/purchase-used', GameOwnershipController.purchaseUsed);
+
 router.delete('/marketplace/:id', GameOwnershipController.deleteListing);
 router.get('/my-sales', GameOwnershipController.getMySales);
 router.get('/transactions', GameOwnershipController.getTransactions);

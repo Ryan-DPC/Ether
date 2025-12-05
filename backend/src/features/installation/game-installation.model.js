@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const gameInstallationSchema = new mongoose.Schema(
     {
         user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-        game_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Game', required: true, index: true },
+        game_id: { type: mongoose.Schema.Types.Mixed, required: true, index: true }, // Can be ObjectId (Mongo) or String (Cloudinary)
         version: { type: String, required: true }, // e.g., "1.2.3"
         local_path: { type: String, required: true }, // e.g., "C:/Games/Ether/spludbuster"
         status: {

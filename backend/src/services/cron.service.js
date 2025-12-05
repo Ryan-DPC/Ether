@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const Games = require('../features/games/games.model');
 const ItemsSyncService = require('./itemsSyncService');
 const DefaultImageService = require('./defaultImage.service');
+const logger = require('../utils/logger');
 
 /**
  * Service pour gérer les tâches cron
@@ -25,19 +26,19 @@ class CronService {
      */
     async checkNewGames(clearCache = false) {
         if (this.isRunning) {
-            console.log('[CronService] ⏸️  Vérification déjà en cours, ignorée');
+            logger.debug('[CronService] ⏸️  Vérification déjà en cours, ignorée');
             return;
         }
 
         this.isRunning = true;
-        console.log('[CronService] 🔍 Vérification des nouveaux jeux sur Cloudinary...');
+        logger.debug('[CronService] 🔍 Vérification des nouveaux jeux sur Cloudinary...');
 
         try {
             // Ensure the default fallback image exists
             await DefaultImageService.ensureDefaultImage();
 
             if (!this.cloudinaryService.isEnabled()) {
-                console.log('[CronService] ⚠️  Cloudinary non configuré, vérification ignorée');
+                logger.warn('[CronService] ⚠️  Cloudinary non configuré, vérification ignorée');
                 return;
             }
 
@@ -47,7 +48,7 @@ class CronService {
                 const cacheService = cache();
                 if (cacheService.isEnabled()) {
                     await cacheService.clearAll();
-                    console.log('[CronService] 🗑️  Cache Redis vidé');
+                    logger.debug('[CronService] 🗑️  Cache Redis vidé');
                 }
             }
 
@@ -57,9 +58,9 @@ class CronService {
             // Synchroniser avec slug.json
             await this.slugService.syncFromCloudinary(games);
 
-            console.log(`[CronService] ✅ Vérification terminée: ${games.length} jeu(x) trouvé(s)`);
+            logger.debug(`[CronService] ✅ Vérification terminée: ${games.length} jeu(x) trouvé(s)`);
         } catch (error) {
-            console.error('[CronService] ❌ Erreur lors de la vérification:', error.message);
+            logger.error(`[CronService] ❌ Erreur lors de la vérification: ${error.message}`);
         } finally {
             this.isRunning = false;
         }
@@ -70,12 +71,12 @@ class CronService {
      */
     async syncMongoDB() {
         if (this.isRunning) {
-            console.log('[CronService] ⏸️  Synchronisation déjà en cours, ignorée');
+            logger.debug('[CronService] ⏸️  Synchronisation déjà en cours, ignorée');
             return;
         }
 
         this.isRunning = true;
-        console.log('[CronService] 🔄 Synchronisation MongoDB avec slug.json...');
+        logger.debug('[CronService] 🔄 Synchronisation MongoDB avec slug.json...');
 
         try {
             // Charger les prix depuis slug.json
@@ -87,18 +88,18 @@ class CronService {
             // Pour chaque jeu dans slug.json, mettre à jour MongoDB
             for (const [slug, gameData] of Object.entries(slugData.games)) {
                 if (!gameData.enabled) {
-                    console.log(`[CronService] ⏭️  Jeu ${slug} désactivé, ignoré`);
+                    logger.debug(`[CronService] ⏭️  Jeu ${slug} désactivé, ignoré`);
                     continue;
                 }
 
                 try {
-                    console.log(`[CronService] 🔍 Vérification du jeu: ${slug}`);
+                    logger.debug(`[CronService] 🔍 Vérification du jeu: ${slug}`);
 
                     // Chercher le jeu dans MongoDB
                     const existingGame = await Games.getGameByName(slug);
 
                     if (existingGame) {
-                        console.log(`[CronService] ✅ Jeu trouvé dans MongoDB: ${slug} (prix actuel: ${existingGame.price})`);
+                        logger.debug(`[CronService] ✅ Jeu trouvé dans MongoDB: ${slug} (prix actuel: ${existingGame.price})`);
                         // Mettre à jour le prix si différent
                         if (existingGame.price !== gameData.price) {
                             const result = await Games.updateOne(
@@ -107,15 +108,15 @@ class CronService {
                             );
                             if (result && result.modifiedCount > 0) {
                                 updated++;
-                                console.log(`[CronService] 💰 Prix mis à jour: ${slug} -> ${gameData.price} CHF`);
+                                logger.info(`[CronService] 💰 Prix mis à jour: ${slug} -> ${gameData.price} CHF`);
                             } else {
-                                console.log(`[CronService] ℹ️  Prix déjà à jour pour ${slug}`);
+                                logger.debug(`[CronService] ℹ️  Prix déjà à jour pour ${slug}`);
                             }
                         } else {
-                            console.log(`[CronService] ℹ️  Prix déjà à jour pour ${slug}`);
+                            logger.debug(`[CronService] ℹ️  Prix déjà à jour pour ${slug}`);
                         }
                     } else {
-                        console.log(`[CronService] ➕ Jeu non trouvé, création: ${slug}`);
+                        logger.info(`[CronService] ➕ Jeu non trouvé, création: ${slug}`);
                         // Créer le jeu dans MongoDB s'il n'existe pas
                         const gameId = await Games.addGame({
                             folder_name: slug,
@@ -129,17 +130,17 @@ class CronService {
                             developer: 'Inconnu'
                         });
                         created++;
-                        console.log(`[CronService] ✨ Jeu créé dans MongoDB: ${slug} (ID: ${gameId})`);
+                        logger.info(`[CronService] ✨ Jeu créé dans MongoDB: ${slug} (ID: ${gameId})`);
                     }
                 } catch (error) {
-                    console.error(`[CronService] ❌ Erreur pour ${slug}:`, error.message);
-                    console.error(`[CronService] Stack trace:`, error.stack);
+                    logger.error(`[CronService] ❌ Erreur pour ${slug}: ${error.message}`);
+                    logger.debug(`[CronService] Stack trace: ${error.stack}`);
                 }
             }
 
-            console.log(`[CronService] ✅ Synchronisation terminée: ${updated} mis à jour, ${created} créés`);
+            logger.debug(`[CronService] ✅ Synchronisation terminée: ${updated} mis à jour, ${created} créés`);
         } catch (error) {
-            console.error('[CronService] ❌ Erreur lors de la synchronisation:', error.message);
+            logger.error(`[CronService] ❌ Erreur lors de la synchronisation: ${error.message}`);
         } finally {
             this.isRunning = false;
         }
@@ -162,14 +163,14 @@ class CronService {
 
         // Synchroniser les items Cloudinary → MongoDB toutes les 3 heures
         cron.schedule('0 */3 * * *', () => {
-            console.log('[CronService] 🏪 Démarrage sync items...');
+            logger.debug('[CronService] 🏪 Démarrage sync items...');
             ItemsSyncService.syncCloudinaryToMongoDB();
         });
 
-        console.log('[CronService] ✅ Tâches cron démarrées:');
-        console.log(`   - Vérification nouveaux jeux: ${gameCheckCron}`);
-        console.log('   - Synchronisation MongoDB: toutes les 3 heures');
-        console.log('   - Synchronisation items: toutes les 3 heures');
+        logger.info('[CronService] ✅ Tâches cron démarrées');
+        logger.debug(`   - Vérification nouveaux jeux: ${gameCheckCron}`);
+        logger.debug('   - Synchronisation MongoDB: toutes les 3 heures');
+        logger.debug('   - Synchronisation items: toutes les 3 heures');
 
         // Exécuter une première fois au démarrage (après 3 secondes pour laisser le temps au serveur de démarrer)
         setTimeout(() => {
@@ -185,7 +186,7 @@ class CronService {
      */
     stop() {
         // Les tâches cron s'arrêtent automatiquement quand le processus se termine
-        console.log('[CronService] ⏹️  Tâches cron arrêtées');
+        logger.info('[CronService] ⏹️  Tâches cron arrêtées');
     }
 }
 

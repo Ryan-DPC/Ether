@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { socketService } from '../services/socket'
 
 export const useMarketplaceStore = defineStore('marketplace', {
     state: () => ({
@@ -19,12 +20,7 @@ export const useMarketplaceStore = defineStore('marketplace', {
                 if (filters.genre) params.set('genre', filters.genre)
                 if (filters.sort) params.set('sort', filters.sort)
 
-                const response = await axios.get(`/api/game-ownership/marketplace?${params}`, {
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    }
-                })
+                const response = await axios.get(`/game-ownership/marketplace?${params}`)
                 this.usedGames = response.data || []
             } catch (error) {
                 console.error('Failed to fetch used games:', error)
@@ -35,7 +31,7 @@ export const useMarketplaceStore = defineStore('marketplace', {
         },
         async fetchOwnedGames() {
             try {
-                const response = await axios.get('/api/game-ownership/my-games')
+                const response = await axios.get('/game-ownership/my-games')
                 this.ownedGames = response.data || []
             } catch (error) {
                 console.error('Failed to fetch owned games:', error)
@@ -44,7 +40,7 @@ export const useMarketplaceStore = defineStore('marketplace', {
         },
         async fetchActiveSales() {
             try {
-                const response = await axios.get('/api/game-ownership/my-sales')
+                const response = await axios.get('/game-ownership/my-sales')
                 this.activeSales = response.data || []
             } catch (error) {
                 console.error('Failed to fetch active sales:', error)
@@ -53,7 +49,7 @@ export const useMarketplaceStore = defineStore('marketplace', {
         },
         async fetchTransactions() {
             try {
-                const response = await axios.get('/api/game-ownership/transactions')
+                const response = await axios.get('/game-ownership/transactions')
                 this.transactions = response.data || []
             } catch (error) {
                 console.error('Failed to fetch transactions:', error)
@@ -61,20 +57,42 @@ export const useMarketplaceStore = defineStore('marketplace', {
             }
         },
         async buyUsedGame(ownershipToken: string, sellerId: string) {
-            try {
-                const response = await axios.post('/api/game-ownership/purchase-used', {
+            return new Promise((resolve, reject) => {
+                // Listen for success
+                const successHandler = (data: any) => {
+                    socketService.off('transaction:success')
+                    socketService.off('transaction:error')
+                    this.fetchUsedGames() // Refresh list
+                    resolve(data)
+                }
+
+                // Listen for error
+                const errorHandler = (data: any) => {
+                    socketService.off('transaction:success')
+                    socketService.off('transaction:error')
+                    reject(new Error(data.message || 'Transaction failed'))
+                }
+
+                socketService.on('transaction:success', successHandler)
+                socketService.on('transaction:error', errorHandler)
+
+                // Emit purchase request
+                socketService.emit('transaction:purchase', {
                     ownershipToken,
                     sellerId
                 })
-                await this.fetchUsedGames()
-                return response.data
-            } catch (error) {
-                throw error
-            }
+
+                // Timeout safety
+                setTimeout(() => {
+                    socketService.off('transaction:success')
+                    socketService.off('transaction:error')
+                    reject(new Error('Transaction timed out'))
+                }, 10000)
+            })
         },
         async sellGame(gameKey: string, askingPrice: number) {
             try {
-                const response = await axios.post('/api/game-ownership/sell', {
+                const response = await axios.post('/game-ownership/sell', {
                     gameKey,
                     askingPrice
                 })
@@ -86,7 +104,7 @@ export const useMarketplaceStore = defineStore('marketplace', {
         },
         async cancelSale(ownershipToken: string) {
             try {
-                await axios.post('/api/game-ownership/cancel-sale', { ownershipToken })
+                await axios.post('/game-ownership/cancel-sale', { ownershipToken })
                 await this.fetchActiveSales()
             } catch (error) {
                 throw error
@@ -94,7 +112,7 @@ export const useMarketplaceStore = defineStore('marketplace', {
         },
         async fetchGameStats(gameKey: string) {
             try {
-                const response = await axios.get(`/api/game-ownership/stats/${gameKey}`)
+                const response = await axios.get(`/game-ownership/stats/${gameKey}`)
                 return response.data
             } catch (error) {
                 console.error('Failed to fetch game stats:', error)
@@ -103,7 +121,7 @@ export const useMarketplaceStore = defineStore('marketplace', {
         },
         async deleteListing(ownershipToken: string) {
             try {
-                await axios.delete(`/api/game-ownership/marketplace/${ownershipToken}`)
+                await axios.delete(`/game-ownership/marketplace/${ownershipToken}`)
                 await this.fetchUsedGames()
             } catch (error) {
                 throw error

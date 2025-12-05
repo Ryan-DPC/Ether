@@ -1,4 +1,5 @@
 const { createClient: createRedisClient } = require('redis');
+const logger = require('../utils/logger');
 
 class CloudinaryCacheService {
     constructor() {
@@ -11,22 +12,22 @@ class CloudinaryCacheService {
 
     async init() {
         if (!process.env.REDIS_URL) {
-            console.log('[CloudinaryCache] Redis not configured, cache disabled');
+            logger.debug('[CloudinaryCache] Redis not configured, cache disabled');
             return;
         }
 
         try {
             this.client = createRedisClient({ url: process.env.REDIS_URL });
             this.client.on('error', (err) => {
-                console.error('[CloudinaryCache] Redis Error:', err);
+                logger.error(`[CloudinaryCache] Redis Error: ${err.message}`);
                 this.enabled = false;
             });
 
             await this.client.connect();
             this.enabled = true;
-            console.log('[CloudinaryCache] ✅ Redis Cache enabled for Cloudinary');
+            logger.debug('[CloudinaryCache] ✅ Redis Cache enabled for Cloudinary');
         } catch (error) {
-            console.warn('[CloudinaryCache] ⚠️ Cannot connect to Redis, cache disabled:', error.message);
+            logger.warn(`[CloudinaryCache] ⚠️ Cannot connect to Redis, cache disabled: ${error.message}`);
             this.enabled = false;
         }
     }
@@ -42,7 +43,7 @@ class CloudinaryCacheService {
             }
             return null;
         } catch (error) {
-            console.error(`[CloudinaryCache] Error getting cache for ${folderName}:`, error);
+            logger.error(`[CloudinaryCache] Error getting cache for ${folderName}: ${error.message}`);
             return null;
         }
     }
@@ -55,7 +56,7 @@ class CloudinaryCacheService {
             const ttlToUse = ttl || this.cacheTTL;
             await this.client.setEx(key, ttlToUse, JSON.stringify(manifest));
         } catch (error) {
-            console.error(`[CloudinaryCache] Error setting cache for ${folderName}:`, error);
+            logger.error(`[CloudinaryCache] Error setting cache for ${folderName}: ${error.message}`);
         }
     }
 
@@ -70,7 +71,7 @@ class CloudinaryCacheService {
             }
             return null;
         } catch (error) {
-            console.error('[CloudinaryCache] Error getting list cache:', error);
+            logger.error(`[CloudinaryCache] Error getting list cache: ${error.message}`);
             return null;
         }
     }
@@ -83,7 +84,7 @@ class CloudinaryCacheService {
             const ttlToUse = ttl || this.cacheTTL;
             await this.client.setEx(key, ttlToUse, JSON.stringify(manifests));
         } catch (error) {
-            console.error('[CloudinaryCache] Error setting list cache:', error);
+            logger.error(`[CloudinaryCache] Error setting list cache: ${error.message}`);
         }
     }
 
@@ -95,7 +96,7 @@ class CloudinaryCacheService {
             await this.client.del(key);
             await this.client.del(`${this.cachePrefix}list:all`);
         } catch (error) {
-            console.error(`[CloudinaryCache] Error invalidating ${folderName}:`, error);
+            logger.error(`[CloudinaryCache] Error invalidating ${folderName}: ${error.message}`);
         }
     }
 
@@ -110,7 +111,7 @@ class CloudinaryCacheService {
             }
             return null;
         } catch (error) {
-            console.error('[CloudinaryCache] Error getting games list cache:', error);
+            logger.error(`[CloudinaryCache] Error getting games list cache: ${error.message}`);
             return null;
         }
     }
@@ -122,9 +123,9 @@ class CloudinaryCacheService {
             const key = `${this.cachePrefix}games:all`;
             const ttlToUse = ttl || this.cacheTTL;
             await this.client.setEx(key, ttlToUse, JSON.stringify(games));
-            console.log(`[CloudinaryCache] ✅ ${games.length} games cached (TTL: ${ttlToUse}s)`);
+            logger.debug(`[CloudinaryCache] ✅ ${games.length} games cached (TTL: ${ttlToUse}s)`);
         } catch (error) {
-            console.error('[CloudinaryCache] Error setting games list cache:', error);
+            logger.error(`[CloudinaryCache] Error setting games list cache: ${error.message}`);
         }
     }
 
@@ -135,10 +136,10 @@ class CloudinaryCacheService {
             const keys = await this.client.keys(`${this.cachePrefix}*`);
             if (keys.length > 0) {
                 await this.client.del(keys);
-                console.log(`[CloudinaryCache] ✅ ${keys.length} cache entries deleted`);
+                logger.debug(`[CloudinaryCache] ✅ ${keys.length} cache entries deleted`);
             }
         } catch (error) {
-            console.error('[CloudinaryCache] Error clearing cache:', error);
+            logger.error(`[CloudinaryCache] Error clearing cache: ${error.message}`);
         }
     }
 

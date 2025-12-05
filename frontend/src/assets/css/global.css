@@ -1,26 +1,58 @@
+:root {
+    box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: inherit;
+}
+
+:root {
+    /* Sakura Dark Theme */
+    --bg-primary: #120c18;
+    --bg-secondary: #1e1928;
+    --bg-tertiary: #2d2438;
+
+    --glass-bg: rgba(30, 25, 40, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+
+    --accent-primary: #ff7eb3;
+    /* Neon Pink */
+    --accent-secondary: #7afcff;
+    /* Neon Cyan */
+
+    --text-primary: #ffffff;
+    --text-secondary: #b0b9c3;
+    --text-muted: #6c757d;
+
+    --success: #00e676;
+    --warning: #ffea00;
+    --error: #ff1744;
+}
 
 body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
-    background: #1b1f23;
-    color: #b0b9c3;
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    /* Prevent body scroll, let app handle it */
 }
 
-/* Styles globaux pour les titres */
-h1 {
-    color: #fff;
-}
-
-h2, h3, h4, h5, h6 {
+h2,
+h3,
+h4,
+h5,
+h6 {
     color: #fff;
 }
 
 /* Texte secondaire */
-p, span, .text-secondary, .secondary-text {
+p,
+span,
+.text-secondary,
+.secondary-text {
     color: #b0b9c3;
 }
 
@@ -29,7 +61,8 @@ body.library-page {
 }
 
 .main-container {
-    flex: 1; /* Permet à cette section de prendre tout l'espace disponible */
+    flex: 1;
+    /* Permet à cette section de prendre tout l'espace disponible */
     width: 100%;
     padding: 0;
     color: #fff;
@@ -50,7 +83,9 @@ nav .logo-container img {
 }
 
 /* Mini-logo color */
-.mini-logo, .logo-container svg, .logo-container path {
+.mini-logo,
+.logo-container svg,
+.logo-container path {
     color: #b0b9c3;
     fill: #b0b9c3;
 }
@@ -104,20 +139,28 @@ nav .profile-pic {
 }
 
 #games-container {
-    max-height: 500px; /* Hauteur maximale lorsque visible */
-    overflow-y: auto;  /* Permet de scroller si le contenu dépasse */
-    transition: max-height 0.3s ease-in-out; /* Transition fluide */
+    max-height: 500px;
+    /* Hauteur maximale lorsque visible */
+    overflow-y: auto;
+    /* Permet de scroller si le contenu dépasse */
+    transition: max-height 0.3s ease-in-out;
+    /* Transition fluide */
 }
 
 #games-container.collapsed {
-    max-height: 0;      /* Cache complètement le conteneur */
-    overflow: hidden;   /* Masque le contenu */
+    max-height: 0;
+    /* Cache complètement le conteneur */
+    overflow: hidden;
+    /* Masque le contenu */
 }
+
 /* Positionnement de la liste d'amis */
 .friends-container {
     position: absolute;
-    top: 100%; /* Juste en dessous du header */
-    right: 1rem; /* Aligne à droite sous user-info */
+    top: 100%;
+    /* Juste en dessous du header */
+    right: 1rem;
+    /* Aligne à droite sous user-info */
     background-color: #24292f;
     color: #fff;
     border: 1px solid #333;
@@ -126,12 +169,15 @@ nav .profile-pic {
     max-width: 300px;
     width: 100%;
     z-index: 1000;
-    display: none; /* Par défaut, cachée */
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Ombre pour effet flottant */
+    display: none;
+    /* Par défaut, cachée */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    /* Ombre pour effet flottant */
 }
 
 .friends-container.show {
-    display: block; /* Afficher quand activée */
+    display: block;
+    /* Afficher quand activée */
 }
 
 .friends-container h3 {
@@ -145,7 +191,8 @@ nav .profile-pic {
     padding: 0;
     margin: 0;
     max-height: 200px;
-    overflow-y: auto; /* Scrollable si trop long */
+    overflow-y: auto;
+    /* Scrollable si trop long */
 }
 
 .friends-container li {
@@ -196,40 +243,40 @@ nav .profile-pic {
     body {
         overflow-x: hidden;
     }
-    
+
     .main-container {
         width: 100%;
         max-width: 100vw;
         overflow-x: hidden;
     }
-    
+
     nav {
         padding: 0.5rem;
         flex-wrap: wrap;
     }
-    
+
     .tabs-container {
         padding: 0.5rem;
         overflow-x: auto;
     }
-    
+
     .tabs {
         flex-wrap: nowrap;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
-    
+
     .tabs li {
         margin-right: 0.5rem;
         flex-shrink: 0;
     }
-    
+
     .tabs li a {
         padding: 0.4rem 0.8rem;
         font-size: 0.9rem;
         white-space: nowrap;
     }
-    
+
     .friends-container {
         max-width: calc(100vw - 2rem);
         right: 0.5rem;
@@ -240,31 +287,31 @@ nav .profile-pic {
     nav {
         padding: 0.4rem;
     }
-    
+
     nav .logo-container img {
         height: 32px;
     }
-    
+
     nav .profile-pic {
         height: 32px;
         width: 32px;
     }
-    
+
     .tabs-container {
         padding: 0.4rem;
     }
-    
+
     .tabs li a {
         padding: 0.3rem 0.6rem;
         font-size: 0.85rem;
     }
-    
+
     .friends-container {
         max-width: calc(100vw - 1rem);
         right: 0.5rem;
         padding: 0.8rem;
     }
-    
+
     .friends-container h3 {
         font-size: 1rem;
     }

@@ -1,55 +1,11 @@
-<template>
-  <div v-if="isVisible" class="progress-overlay" @click.self="close">
-    <div class="progress-modal">
-      <div class="progress-header">
-        <h3>{{ gameData.gameName || 'Installation' }}</h3>
-        <button @click="close" class="close-btn">&times;</button>
-      </div>
-      
-      <div class="progress-body">
-        <div v-if="currentPhase === 'download'" class="phase-info">
-          <div class="phase-title">📥 Téléchargement...</div>
-          <div class="progress-bar-container">
-            <div class="progress-bar" :style="{ width: progressData.progress + '%' }"></div>
-          </div>
-          <div class="progress-text">{{ progressData.progress }}%</div>
-          
-          <div class="stats">
-            <div class="stat">
-              <span class="label">Vitesse:</span>
-              <span class="value">{{ progressData.speed || 'Calcul...' }}</span>
-            </div>
-            <div class="stat">
-              <span class="label">Téléchargé:</span>
-              <span class="value">{{ progressData.downloaded || '0 MB' }} / {{ progressData.total || '?' }}</span>
-            </div>
-            <div class="stat">
-              <span class="label">Temps restant:</span>
-              <span class="value">{{ progressData.eta || 'Calcul...' }}</span>
-            </div>
-          </div>
-        </div>
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { socketService } from '../services/socket'
 
-        <div v-else-if="currentPhase === 'extract'" class="phase-info">
-          <div class="phase-title">📦 Extraction...</div>
-          <div class="progress-bar-container">
-            <div class="progress-bar" :style="{ width: progressData.progress + '%' }"></div>
-          </div>
-          <div class="progress-text">{{ progressData.progress }}%</div>
-        </div>
-
-        <div v-else-if="currentPhase === 'complete'" class="phase-info success">
-          <div class="phase-title">✅ Installation terminée!</div>
-          <p>{{ gameData.gameName }} est maintenant installé et prêt à jouer.</p>
-          <button @click="close" class="btn-primary">Fermer</button>
-        </div>
-
-        <div v-else-if="currentPhase === 'error'" class="phase-info error">
-          <div class="phase-title">❌ Erreur</div>
-          <p>{{ errorMessage }}</p>
-          <button @click="close" class="btn-secondary">Fermer</button>
-        </div>
-      </div>
+const isVisible = ref(false)
+const currentPhase = ref<string | null>(null)
+const gameData = ref({
+  gameId: '',
   gameName: ''
 })
 const progressData = ref({
@@ -112,19 +68,73 @@ const handleError = (data: any) => {
 }
 
 onMounted(() => {
-  socket.on('installation:progress', handleProgress)
-  socket.on('installation:complete', handleComplete)
-  socket.on('installation:error', handleError)
+  socketService.on('installation:progress', handleProgress)
+  socketService.on('installation:complete', handleComplete)
+  socketService.on('installation:error', handleError)
 })
 
 onUnmounted(() => {
-  socket.off('installation:progress', handleProgress)
-  socket.off('installation:complete', handleComplete)
-  socket.off('installation:error', handleError)
+  socketService.off('installation:progress')
+  socketService.off('installation:complete')
+  socketService.off('installation:error')
 })
 
 defineExpose({ show, close })
 </script>
+
+<template>
+  <div v-if="isVisible" class="progress-overlay" @click.self="close">
+    <div class="progress-modal">
+      <div class="progress-header">
+        <h3>{{ gameData.gameName || 'Installation' }}</h3>
+        <button @click="close" class="close-btn">&times;</button>
+      </div>
+      
+      <div class="progress-body">
+        <div v-if="currentPhase === 'download'" class="phase-info">
+          <div class="phase-title">📥 Téléchargement...</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" :style="{ width: progressData.progress + '%' }"></div>
+          </div>
+          <div class="progress-text">{{ progressData.progress }}%</div>
+          
+          <div class="stats">
+            <div class="stat">
+              <span class="label">Vitesse:</span>
+              <span class="value">{{ progressData.speed || 'Calcul...' }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Téléchargé:</span>
+              <span class="value">{{ progressData.downloaded || '0 MB' }} / {{ progressData.total || '?' }}</span>
+            </div>
+            <div class="stat">
+              <span class="label">Temps restant:</span>
+              <span class="value">{{ progressData.eta || 'Calcul...' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="currentPhase === 'extract'" class="phase-info">
+          <div class="phase-title">📦 Extraction...</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" :style="{ width: progressData.progress + '%' }"></div>
+          </div>
+          <div class="progress-text">{{ progressData.progress }}%</div>
+        </div>
+
+        <div v-else-if="currentPhase === 'complete'" class="phase-info success">
+          <div class="phase-title">✅ Installation terminée!</div>
+          <p>{{ gameData.gameName }} est maintenant installé et prêt à jouer.</p>
+          <button @click="close" class="btn-primary">Fermer</button>
+        </div>
+
+        <div v-else-if="currentPhase === 'error'" class="phase-info error">
+          <div class="phase-title">❌ Erreur</div>
+          <p>{{ errorMessage }}</p>
+          <button @click="close" class="btn-secondary">Fermer</button>
+        </div>
+      </div>
+
 
 <style scoped>
 .progress-overlay {

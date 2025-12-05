@@ -3,7 +3,7 @@ const streamifier = require('streamifier');
 require('dotenv').config();
 
 cloudinary.config({
-    cloud_url: process.env.CLOUDINARY_URL,
+    url: process.env.CLOUDINARY_URL,
 });
 
 const uploadFromBuffer = (buffer) => {

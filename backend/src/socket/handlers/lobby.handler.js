@@ -1,6 +1,8 @@
 const LobbyService = require('../../features/lobby/lobby.service');
 
-module.exports = (io, socket) => {
+module.exports = (socket) => {
+    // Note: As a client, we emit events to central server which handles broadcasting
+
     // Créer un nouveau lobby
     socket.on('createGame', () => {
         if (!socket.data.name) {
@@ -9,9 +11,9 @@ module.exports = (io, socket) => {
         }
 
         const code = LobbyService.createLobby(socket.id);
-        socket.join(code);
         console.log(`Game created by ${socket.data.name} with code: ${code}`);
-        // Note: Les jeux sont maintenant dans /games/ - adapter l'URL selon le type de jeu
+
+        // Emit to central server to handle
         socket.emit('gameCreated', { code, creator: socket.data.name, url: `/games/chessmulti/${code}` });
     });
 
@@ -24,12 +26,11 @@ module.exports = (io, socket) => {
 
         const success = LobbyService.joinLobby(code, socket.id);
         if (success) {
-            socket.join(code);
             let players = LobbyService.getPlayers(code);
             console.log(`Players in lobby ${code}:`, players);
 
-            const playerNames = players.map(id => io.sockets.sockets.get(id)?.data.name || `Player_${id}`);
-            io.to(code).emit('playerJoined', { code, player: socket.data.name, players: playerNames });
+            // Send to central server to broadcast
+            socket.emit('joinLobby:broadcast', { code, player: socket.data.name, lobbyId: code });
         } else {
             socket.emit('error', { message: 'Lobby is full or does not exist.' });
         }
@@ -40,11 +41,11 @@ module.exports = (io, socket) => {
 
         const success = LobbyService.joinLobby(lobbyId, socket.id);
         if (success) {
-            socket.join(lobbyId);
             const players = LobbyService.getPlayers(lobbyId);
             console.log(`Players in lobby ${lobbyId}:`, players);
 
-            io.to(lobbyId).emit('playerList', players);
+            // Send to central server to broadcast
+            socket.emit('playerList:broadcast', { lobbyId, players });
         } else {
             socket.emit('error', { message: 'Failed to join lobby. Lobby not found.' });
         }
@@ -53,13 +54,13 @@ module.exports = (io, socket) => {
     // Quitter un lobby
     socket.on('leaveGame', (code) => {
         const lobby = LobbyService.leaveLobby(socket.id);
-        socket.leave(code);
         console.log(`${socket.data.name} left game ${code}`);
 
         if (lobby) {
             let players = LobbyService.getPlayers(code);
-            const playerNames = players.map(id => io.sockets.sockets.get(id)?.data.name || `Player_${id}`);
-            io.to(code).emit('playerLeft', { code, player: socket.data.name, players: playerNames });
+
+            // Send to central server to broadcast
+            socket.emit('playerLeft:broadcast', { code, player: socket.data.name, players });
         }
     });
 
@@ -67,19 +68,30 @@ module.exports = (io, socket) => {
     socket.on('requestPlayerList', (code) => {
         let players = LobbyService.getPlayers(code);
         if (!Array.isArray(players)) players = [];
-        const playerNames = players.map(id => io.sockets.sockets.get(id)?.data.name || `Player_${id}`);
-        socket.emit('playerList', playerNames);
+
+        socket.emit('playerList', players);
     });
 
     // Lobby invite
     socket.on('lobby:invite', ({ friendId, lobbyId }) => {
         console.log(`[Socket] Lobby invite from ${socket.id} to friend ${friendId} for lobby ${lobbyId}`);
-        // Send invite to friend
-        io.to(friendId).emit('lobby:invite', {
+
+        // Forward to central server to handle
+        socket.emit('lobby:invite:forward', {
             lobbyId,
+            friendId,
             fromUserId: socket.id,
             fromUsername: socket.data.name || 'Unknown'
         });
+    });
+
+    // Listen for broadcasts from central server
+    socket.on('playerJoined', (data) => {
+        console.log('[Central Server] Player joined:', data);
+    });
+
+    socket.on('playerLeft', (data) => {
+        console.log('[Central Server] Player left:', data);
     });
 
     // Déconnexion (nettoyage lobby)
@@ -87,8 +99,14 @@ module.exports = (io, socket) => {
         const lobby = LobbyService.leaveLobby(socket.id);
         if (lobby) {
             let players = LobbyService.getPlayers(lobby);
-            const playerNames = players.map(id => io.sockets.sockets.get(id)?.data.name || `Player_${id}`);
-            io.to(lobby).emit('playerLeft', { message: `${socket.data.name || 'A player'} has left the game.`, players: playerNames });
+
+            // Notify central server
+            socket.emit('playerLeft:broadcast', {
+                lobbyId: lobby,
+                message: `${socket.data.name || 'A player'} has left the game.`,
+                players
+            });
         }
     });
 };
+

@@ -12,7 +12,7 @@ const error = ref('')
 
 onMounted(async () => {
   try {
-    const response = await axios.get(`/api/users/${userId}`)
+    const response = await axios.get(`/users/${userId}`)
     user.value = response.data.user
   } catch (err: any) {
     error.value = err.response?.data?.message || 'Utilisateur introuvable'
@@ -42,7 +42,7 @@ onMounted(async () => {
       <header class="profile-header">
         <div class="profile-header-section">
           <div class="profile-avatar">
-            <img :src="user.profile_pic || '/assets/images/default-game.png'">
+            <img :src="user.profile_pic || 'http://localhost:3001/public/default-game.svg'">
           </div>
           <div class="profile-info">
             <h1>{{ user.username || 'Utilisateur' }}</h1>

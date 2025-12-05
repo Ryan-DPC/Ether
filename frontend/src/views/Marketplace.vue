@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
-import { useUserStore } from '../stores/userStore'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const marketplaceStore = useMarketplaceStore()
-const userStore = useUserStore()
 
 const activeTab = ref('marketplace')
 const showSellModal = ref(false)
-const showBuyModal = ref(false)
 const selectedGameForSale = ref('')
 const sellPrice = ref(0)
-const selectedGameToBuy = ref(null as any)
 
 // Filters
 const genreFilter = ref('')
@@ -39,89 +37,71 @@ const applyFilters = () => {
 
 const openSellModal = async () => {
   await marketplaceStore.fetchOwnedGames()
-  console.log('Owned games for sale:', marketplaceStore.ownedGames)
   showSellModal.value = true
 }
 
 const handleSellGame = async () => {
   if (!selectedGameForSale.value || sellPrice.value <= 0) {
-    alert('Veuillez remplir tous les champs')
+    alert('Please fill all fields')
     return
   }
 
   try {
-    // 1. List on backend
     await marketplaceStore.sellGame(selectedGameForSale.value, sellPrice.value)
     
-    // 2. Uninstall locally if Electron is available
     if (window.electronAPI) {
       const installPath = localStorage.getItem('etherInstallPath')
-      // Find the game object to get the folder name (game_key is usually folder_name)
       const game = marketplaceStore.ownedGames.find((g: any) => g.game_key === selectedGameForSale.value)
       
       if (installPath && game) {
         try {
-          console.log('Uninstalling game due to sale listing:', game.game_key)
           await window.electronAPI.uninstallGame(installPath, game.game_key)
-          new Notification('Ether Desktop', { body: `🗑️ ${game.game_name} a été désinstallé car mis en vente.` })
+          new Notification('Ether Desktop', { body: `🗑️ ${game.game_name} uninstalled (listed for sale).` })
         } catch (err) {
           console.error('Failed to uninstall game:', err)
         }
       }
     }
 
-    alert('Jeu mis en vente !')
+    alert('Game listed for sale!')
     showSellModal.value = false
     selectedGameForSale.value = ''
     sellPrice.value = 0
     
-    // Refresh lists
     await marketplaceStore.fetchOwnedGames()
     await marketplaceStore.fetchActiveSales()
   } catch (error: any) {
-    alert(error.response?.data?.message || 'Erreur lors de la mise en vente')
+    alert(error.response?.data?.message || 'Error listing game')
   }
 }
 
 const buyUsedGame = async (game: any) => {
   const price = game.asking_price || 0
-  if (confirm(`Acheter "${game.game_name}" pour ${price.toFixed(2)} CHF ?`)) {
+  if (confirm(`Buy "${game.game_name}" for ${price.toFixed(2)} CHF?`)) {
     try {
       await marketplaceStore.buyUsedGame(game.ownership_token, game.seller_id)
-      alert('Achat effectué avec succès!')
+      alert('Purchase successful!')
       await marketplaceStore.fetchUsedGames()
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Erreur lors de l\'achat')
+      alert(error.response?.data?.message || 'Purchase failed')
     }
   }
 }
 
 const cancelSale = async (ownershipToken: string) => {
-  if (confirm('Annuler cette vente ?')) {
+  if (confirm('Cancel this sale?')) {
     try {
-      console.log('Cancelling sale for token:', ownershipToken)
       await marketplaceStore.cancelSale(ownershipToken)
-      alert('Vente annulée. Vous pouvez maintenant réinstaller le jeu.')
+      alert('Sale cancelled.')
       await marketplaceStore.fetchActiveSales()
       await marketplaceStore.fetchOwnedGames()
     } catch (error: any) {
-      console.error('Cancel sale error:', error)
-      alert(error.response?.data?.message || 'Erreur')
+      alert(error.response?.data?.message || 'Error')
     }
   }
 }
 
-const deleteListing = async (ownershipToken: string) => {
-  if (confirm('Êtes-vous sûr de vouloir supprimer cette annonce ? (Action Admin)')) {
-    try {
-      await marketplaceStore.deleteListing(ownershipToken)
-      // Alert removed - already handled by store
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Erreur lors de la suppression')
-    }
-  }
-}
-
+// Stats logic
 const platformCommission = ref(0)
 const developerCommission = ref(0)
 const netAmount = ref(0)
@@ -140,464 +120,261 @@ const updateGameStats = async () => {
     gameStats.value = null
     return
   }
-  
   gameStats.value = await marketplaceStore.fetchGameStats(selectedGameForSale.value)
 }
+
+// Watch for selection change to update stats
+watch(selectedGameForSale, () => {
+    updateGameStats()
+})
 </script>
 
-<style scoped>
-.market-stats {
-  background: #1a1a1a;
-  padding: 15px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  border: 1px solid #444;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 5px;
-  font-size: 0.9rem;
-}
-
-.stat-item .label {
-  color: #aaa;
-}
-
-.stat-item .value {
-  font-weight: bold;
-  color: #4a9eff;
-}
-</style>
-
 <template>
-  <main class="marketplace-container">
-    <div class="marketplace-header">
-      <h1>Marketplace</h1>
-      <p>Achetez et vendez vos jeux en toute sécurité</p>
-    </div>
+  <div class="marketplace-container">
+    <!-- Background Glows -->
+    <div class="bg-glow pink-glow"></div>
+    <div class="bg-glow cyan-glow"></div>
 
-    <!-- Tabs -->
-    <div class="marketplace-tabs">
-      <button 
-        :class="['tab-btn', { active: activeTab === 'marketplace' }]" 
-        @click="switchTab('marketplace')"
-      >
-        Marché d'Occasion
-      </button>
-      <button 
-        :class="['tab-btn', { active: activeTab === 'my-games' }]" 
-        @click="switchTab('my-games')"
-      >
-        Mes Jeux & Ventes
-      </button>
-      <button 
-        :class="['tab-btn', { active: activeTab === 'transactions' }]" 
-        @click="switchTab('transactions')"
-      >
-        Historique
-      </button>
-    </div>
+    <div class="marketplace-layout">
+        
+        <!-- Header -->
+        <div class="header-section">
+            <h1>Community Market</h1>
+            <div class="tabs">
+                <button :class="{ active: activeTab === 'marketplace' }" @click="switchTab('marketplace')">Buy Games</button>
+                <button :class="{ active: activeTab === 'selling' }" @click="switchTab('selling')">My Listings</button>
+                <button :class="{ active: activeTab === 'transactions' }" @click="switchTab('transactions')">History</button>
+            </div>
+            <button @click="openSellModal" class="btn-neon"><i class="fas fa-plus"></i> Sell Game</button>
+        </div>
 
-    <!-- Marché d'Occasion Tab -->
-    <div v-show="activeTab === 'marketplace'" class="tab-content">
-      <h2>Marché d'Occasion</h2>
-      <div class="marketplace-filters">
-        <select v-model="genreFilter" @change="applyFilters">
-          <option value="">Tous les genres</option>
-          <option value="Action">Action</option>
-          <option value="Strategy">Stratégie</option>
-          <option value="Puzzle">Puzzle</option>
-        </select>
-        <input 
-          v-model="priceRange" 
-          type="range" 
-          min="0" 
-          max="100" 
-          @change="applyFilters"
-        >
-        <span>Prix max: {{ priceRange }} CHF</span>
-      </div>
-      <div class="games-grid">
-        <div v-if="marketplaceStore.isLoading">Chargement...</div>
-        <div 
-          v-for="game in marketplaceStore.usedGames" 
-          :key="game.ownership_token" 
-          class="game-card"
-        >
-          <img :src="game.image_url || '/assets/images/default-game.png'">
-          <h3>{{ game.game_name }}</h3>
-          <p><strong>{{ (game.asking_price || 0).toFixed(2) }} CHF</strong> • {{ game.genre || '' }}</p>
-          <button @click="buyUsedGame(game)" class="btn">Acheter d'occasion</button>
-          <button 
-            v-if="userStore.user?.isAdmin" 
-            @click="deleteListing(game.ownership_token)" 
-            class="btn btn-danger" 
-            style="margin-top: 10px;"
-          >
-            Supprimer (Admin)
-          </button>
-        </div>
-        <p v-if="!marketplaceStore.isLoading && marketplaceStore.usedGames.length === 0">
-          Aucune annonce disponible.
-        </p>
-      </div>
-    </div>
+        <!-- Buy Tab -->
+        <div v-if="activeTab === 'marketplace'" class="tab-content">
+            <div class="filters-bar">
+                <input v-model="genreFilter" placeholder="Filter by Genre" class="glass-input">
+                <div class="range-filter">
+                    <label>Max Price: {{ priceRange }} CHF</label>
+                    <input type="range" v-model="priceRange" min="0" max="200" class="slider">
+                </div>
+                <button @click="applyFilters" class="btn-glass">Apply</button>
+            </div>
 
-    <!-- Mes Jeux & Ventes Tab -->
-    <div v-show="activeTab === 'my-games'" class="tab-content">
-      <!-- My Sales Section -->
-      <div class="my-section">
-        <div class="section-header">
-          <h2>Mes Ventes Actives</h2>
+            <div v-if="marketplaceStore.isLoading" class="loading"><i class="fas fa-circle-notch fa-spin"></i></div>
+            
+            <div v-else class="listings-grid">
+                <div v-for="game in marketplaceStore.usedGames" :key="game.ownership_token" class="listing-card">
+                    <div class="card-img">
+                        <img :src="game.image_url || defaultGameImg">
+                        <div class="price-tag">{{ game.asking_price }} CHF</div>
+                    </div>
+                    <div class="card-body">
+                        <h3>{{ game.game_name }}</h3>
+                        <div class="seller-info">
+                            <span>Seller: {{ game.seller_name }}</span>
+                        </div>
+                        <button @click="buyUsedGame(game)" class="btn-buy">BUY NOW</button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <p class="section-description">Gérez vos jeux mis en vente. Vous pouvez annuler une vente à tout moment.</p>
-        <div class="games-grid">
-          <div 
-            v-for="sale in marketplaceStore.activeSales" 
-            :key="sale.ownership_token" 
-            class="game-card"
-          >
-            <img :src="sale.image_url || '/assets/images/default-game.png'">
-            <h3>{{ sale.game_name }}</h3>
-            <p><strong>{{ (sale.asking_price || 0).toFixed(2) }} CHF</strong></p>
-            <button @click="cancelSale(sale.ownership_token)" class="btn btn-danger">Annuler la vente</button>
-          </div>
-          <p v-if="marketplaceStore.activeSales.length === 0">Aucune vente active.</p>
-        </div>
-      </div>
 
-      <hr>
+        <!-- Selling Tab -->
+        <div v-if="activeTab === 'selling'" class="tab-content">
+            <div class="listings-grid">
+                <div v-for="sale in marketplaceStore.activeSales" :key="sale.ownership_token" class="listing-card my-listing">
+                    <div class="card-img">
+                        <img :src="sale.image_url || defaultGameImg">
+                        <div class="price-tag">{{ sale.asking_price }} CHF</div>
+                    </div>
+                    <div class="card-body">
+                        <h3>{{ sale.game_name }}</h3>
+                        <div class="status-badge">Active</div>
+                        <button @click="cancelSale(sale.ownership_token)" class="btn-cancel">CANCEL SALE</button>
+                    </div>
+                </div>
+            </div>
+             <div v-if="marketplaceStore.activeSales.length === 0" class="empty-state">
+                You have no active listings.
+            </div>
+        </div>
 
-      <!-- My Games Section -->
-      <div class="my-section">
-        <div class="section-header">
-          <h2>Mes Jeux</h2>
-          <button @click="openSellModal" class="btn btn-primary">Vendre un jeu</button>
+        <!-- Transactions Tab -->
+        <div v-if="activeTab === 'transactions'" class="tab-content">
+            <div class="transactions-list">
+                <div v-for="tx in marketplaceStore.transactions" :key="tx.id" class="tx-item">
+                    <div class="tx-info">
+                        <span class="tx-type" :class="tx.type">{{ tx.type }}</span>
+                        <span class="tx-game">{{ tx.game_name }}</span>
+                    </div>
+                    <div class="tx-amount">{{ tx.amount }} CHF</div>
+                    <div class="tx-date">{{ new Date(tx.created_at).toLocaleDateString() }}</div>
+                </div>
+            </div>
         </div>
-        <div class="games-grid">
-          <div 
-            v-for="game in marketplaceStore.ownedGames" 
-            :key="game.game_key" 
-            class="game-card"
-          >
-            <img :src="game.image_url || '/assets/images/default-game.png'">
-            <h3>{{ game.game_name }}</h3>
-            <p>{{ game.genre || 'N/A' }}</p>
-          </div>
-          <p v-if="marketplaceStore.ownedGames.length === 0">Aucun jeu possédé.</p>
-        </div>
-      </div>
-    </div>
 
-    <!-- Transactions Tab -->
-    <div v-show="activeTab === 'transactions'" class="tab-content">
-      <h2>Historique des Transactions</h2>
-      <div class="transactions-list">
-        <div 
-          v-for="transaction in marketplaceStore.transactions" 
-          :key="transaction.id" 
-          class="transaction-item"
-        >
-          <div class="transaction-info">
-            <strong>{{ transaction.game_name }}</strong>
-            <span>{{ transaction.type === 'purchase' ? 'Achat' : 'Vente' }}</span>
-            <span>{{ (transaction.amount || 0).toFixed(2) }} CHF</span>
-            <span>{{ new Date(transaction.created_at).toLocaleDateString() }}</span>
-          </div>
-        </div>
-        <p v-if="marketplaceStore.transactions.length === 0">Aucune transaction.</p>
-      </div>
     </div>
 
     <!-- Sell Modal -->
-    <div v-if="showSellModal" class="modal" @click.self="showSellModal = false">
-      <div class="modal-content">
-        <span class="close" @click="showSellModal = false">&times;</span>
-        <h3>Vendre un jeu</h3>
-        <form @submit.prevent="handleSellGame">
-          <div class="form-group">
-            <label>Jeu:</label>
-            <select v-model="selectedGameForSale" @change="updateGameStats" required>
-              <option value="">-- Sélectionner un jeu --</option>
-              <option v-for="game in marketplaceStore.ownedGames" :key="game.game_key" :value="game.game_key">
-                {{ game.game_name || `Jeu inconnu (${game.game_key})` }}
-              </option>
-            </select>
-          </div>
+    <div v-if="showSellModal" class="modal-overlay" @click.self="showSellModal = false">
+        <div class="modal-glass">
+            <h3>Sell a Game</h3>
+            <div class="form-group">
+                <label>Select Game</label>
+                <select v-model="selectedGameForSale" class="glass-select">
+                    <option v-for="game in marketplaceStore.ownedGames" :key="game.game_key" :value="game.game_key">
+                        {{ game.game_name }}
+                    </option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Price (CHF)</label>
+                <input type="number" v-model="sellPrice" @input="updateCommissions" class="glass-input">
+            </div>
 
-          <!-- Market Stats -->
-          <div v-if="gameStats" class="market-stats">
-            <div class="stat-item">
-              <span class="label">Prix moyen:</span>
-              <span class="value">{{ (gameStats.averagePrice || 0).toFixed(2) }} CHF</span>
+            <div class="commission-info" v-if="sellPrice > 0">
+                <div class="row"><span>Platform Fee (5%)</span> <span>-{{ platformCommission.toFixed(2) }}</span></div>
+                <div class="row"><span>Dev Fee (2%)</span> <span>-{{ developerCommission.toFixed(2) }}</span></div>
+                <div class="row total"><span>You Receive</span> <span>{{ netAmount.toFixed(2) }}</span></div>
             </div>
-            <div class="stat-item">
-              <span class="label">Prix le plus bas:</span>
-              <span class="value">{{ gameStats.lowestPrice ? gameStats.lowestPrice.toFixed(2) + ' CHF' : 'N/A' }}</span>
-            </div>
-            <div class="stat-item">
-              <span class="label">Offres actives:</span>
-              <span class="value">{{ gameStats.totalListings }}</span>
-            </div>
-          </div>
 
-          <div class="form-group">
-            <label>Prix de vente (CHF):</label>
-            <input v-model.number="sellPrice" type="number" min="1" step="0.5" @input="updateCommissions" required>
-          </div>
-          <div class="form-group">
-            <label>Commission plateforme (5%):</label>
-            <span>{{ platformCommission.toFixed(2) }} CHF</span>
-          </div>
-          <div class="form-group">
-            <label>Commission développeur (2%):</label>
-            <span>{{ developerCommission.toFixed(2) }} CHF</span>
-          </div>
-          <div class="form-group">
-            <label>Vous recevrez:</label>
-            <span><strong>{{ netAmount.toFixed(2) }} CHF</strong></span>
-          </div>
-          <button type="submit" class="btn btn-primary">Mettre en vente</button>
-        </form>
-      </div>
+            <div class="stats-info" v-if="gameStats">
+                <p>Avg Price: {{ gameStats.avg_price }} CHF</p>
+                <p>Active Listings: {{ gameStats.active_listings }}</p>
+            </div>
+
+            <button @click="handleSellGame" class="btn-neon full-width">List for Sale</button>
+        </div>
     </div>
-  </main>
+
+  </div>
 </template>
 
 <style scoped>
+/* Variables */
+:root {
+  --neon-pink: #ff7eb3;
+  --neon-cyan: #7afcff;
+  --glass-bg: rgba(30, 25, 40, 0.6);
+}
+
 .marketplace-container {
-  padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
-  color: #fff;
-}
-
-.marketplace-header {
-  margin-bottom: 30px;
-}
-
-.marketplace-header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 8px;
-}
-
-.marketplace-header p {
-  color: #aaa;
-  font-size: 1.1rem;
-}
-
-.marketplace-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 30px;
-  border-bottom: 2px solid #3a3a3a;
-}
-
-.tab-btn {
-  padding: 12px 24px;
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  color: #aaa;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.tab-btn.active {
-  color: #4a9eff;
-  border-bottom-color: #4a9eff;
-}
-
-.tab-content {
-  padding: 20px 0;
-}
-
-.marketplace-filters {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: #2a2a2a;
-  border-radius: 8px;
-}
-
-.marketplace-filters select,
-.marketplace-filters input[type="range"] {
-  padding: 8px;
-  background: #1a1a1a;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #fff;
-}
-
-.games-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
-}
-
-.game-card {
-  background: #2a2a2a;
-  border-radius: 8px;
-  padding: 15px;
-  transition: transform 0.2s;
-}
-
-.game-card:hover {
-  transform: translateY(-5px);
-}
-
-.game-card img {
-  width: 100%;
-  height: 150px;
-  object-fit: cover;
-  border-radius: 6px;
-  margin-bottom: 12px;
-}
-
-.game-card h3 {
-  font-size: 1.1rem;
-  margin-bottom: 8px;
-}
-
-.game-card p {
-  color: #aaa;
-  margin-bottom: 12px;
-}
-
-.btn {
-  width: 100%;
-  padding: 10px;
-  background: #4a9eff;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn:hover {
-  background: #3a8eef;
-}
-
-.btn-danger {
-  background: #d32f2f;
-}
-
-.btn-danger:hover {
-  background: #b71c1c;
-}
-
-.my-section {
-  margin-bottom: 40px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.section-description {
-  color: #aaa;
-  font-size: 0.9rem;
-  margin-bottom: 20px;
-}
-
-hr {
-  margin: 40px 0;
-  border: none;
-  border-top: 1px solid #444;
-}
-
-.transactions-list {
-  background: #2a2a2a;
-  border-radius: 8px;
+  height: 100%; width: 100%;
+  position: relative; overflow: hidden;
+  background-color: #120c18; color: white;
   padding: 20px;
 }
 
-.transaction-item {
-  padding: 15px;
-  border-bottom: 1px solid #3a3a3a;
+.bg-glow {
+  position: absolute; width: 600px; height: 600px;
+  border-radius: 50%; filter: blur(120px); opacity: 0.1; pointer-events: none;
+}
+.pink-glow { top: -200px; left: -200px; background: #ff7eb3; }
+.cyan-glow { bottom: -200px; right: -200px; background: #7afcff; }
+
+.marketplace-layout {
+    position: relative; z-index: 1;
+    height: 100%; display: flex; flex-direction: column;
 }
 
-.transaction-item:last-child {
-  border-bottom: none;
+.header-section {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 30px;
+}
+.header-section h1 { margin: 0; font-size: 2rem; }
+
+.tabs { display: flex; gap: 10px; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 12px; }
+.tabs button {
+    background: transparent; border: none; color: #b0b9c3;
+    padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;
+    transition: all 0.2s;
+}
+.tabs button.active { background: rgba(255,255,255,0.1); color: white; }
+
+.tab-content { flex: 1; overflow-y: auto; }
+
+/* Filters */
+.filters-bar {
+    display: flex; gap: 20px; align-items: center; margin-bottom: 20px;
+    background: rgba(30, 25, 40, 0.6); padding: 15px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+.glass-input {
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+    color: white; padding: 8px 12px; border-radius: 6px;
+}
+.range-filter { display: flex; align-items: center; gap: 10px; color: #b0b9c3; }
+.slider { accent-color: #7afcff; }
+
+/* Grid */
+.listings-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px;
+}
+.listing-card {
+    background: rgba(30, 25, 40, 0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; overflow: hidden;
+    transition: all 0.3s;
+}
+.listing-card:hover { transform: translateY(-5px); border-color: #7afcff; }
+
+.card-img { height: 140px; position: relative; }
+.card-img img { width: 100%; height: 100%; object-fit: cover; }
+.price-tag {
+    position: absolute; bottom: 10px; right: 10px;
+    background: #7afcff; color: #120c18;
+    padding: 4px 8px; border-radius: 4px; font-weight: 800;
 }
 
-.transaction-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
+.card-body { padding: 16px; }
+.card-body h3 { margin: 0 0 10px 0; font-size: 1.1rem; }
+.seller-info { font-size: 0.85rem; color: #b0b9c3; margin-bottom: 15px; }
+
+.btn-buy {
+    width: 100%; background: #7afcff; color: #120c18; border: none;
+    padding: 10px; border-radius: 8px; font-weight: 800; cursor: pointer;
 }
+.btn-cancel {
+    width: 100%; background: rgba(255, 77, 77, 0.2); color: #ff4d4d; border: 1px solid #ff4d4d;
+    padding: 10px; border-radius: 8px; font-weight: 800; cursor: pointer;
+}
+
+/* Transactions */
+.transactions-list { display: flex; flex-direction: column; gap: 10px; }
+.tx-item {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px;
+}
+.tx-type { text-transform: uppercase; font-size: 0.8rem; padding: 2px 6px; border-radius: 4px; margin-right: 10px; }
+.tx-amount { font-weight: 700; color: #7afcff; }
 
 /* Modal */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.8); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
 }
+.modal-glass {
+  background: #1e1928; padding: 30px; border-radius: 16px; width: 450px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; margin-bottom: 8px; color: #b0b9c3; }
+.glass-select { width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid #444; color: white; border-radius: 6px; }
 
-.modal-content {
-  background: #2a2a2a;
-  padding: 30px;
-  border-radius: 8px;
-  max-width: 500px;
-  width: 90%;
-  position: relative;
+.commission-info {
+    background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;
 }
+.row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; color: #b0b9c3; }
+.row.total { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 10px; color: #7afcff; font-weight: 700; }
 
-.close {
-  position: absolute;
-  top: 10px;
-  right: 20px;
-  font-size: 28px;
-  cursor: pointer;
+.btn-neon {
+  background: #ff7eb3; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-weight: 700; cursor: pointer;
 }
-
-.form-group {
-  margin-bottom: 16px;
+.btn-glass {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer;
 }
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #ccc;
-}
-
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 10px;
-  background: #1a1a1a;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #fff;
-}
-
-.btn-primary {
-  background: #4CAF50;
-  width: 100%;
-  padding: 12px;
-  margin-top: 20px;
-}
-
-.btn-primary:hover {
-  background: #45a049;
-}
+.full-width { width: 100%; }
+.loading, .empty-state { text-align: center; padding: 40px; color: #777; }
 </style>

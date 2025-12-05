@@ -1,8 +1,7 @@
-FROM node:20-alpine
-WORKDIR /usr/src/app
+FROM node:20
+WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-ENV NODE_ENV production
-EXPOSE 4000
-CMD ["node", "src/index.js"]
+EXPOSE 3002
+CMD ["npm","run","dev"]

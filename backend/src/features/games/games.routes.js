@@ -5,9 +5,11 @@ const verifyToken = require('../../middleware/auth');
 
 router.get('/all', GamesController.getAllGames);
 router.post('/add', verifyToken, GamesController.addGame); // Protected
-router.get('/details/:folder_name', GamesController.getGameDetails);
-router.get('/:folder_name/manifest', GamesController.getManifest);
-router.get('/:folder_name', GamesController.getGameByName);
+router.post('/update', verifyToken, GamesController.updateGame); // Protected - For GitHub Actions
+router.get('/details/:id', GamesController.getGameDetails);
+router.get('/:id/manifest', GamesController.getManifest);
+router.get('/:id/manifest-url', GamesController.getManifestUrl);
+router.get('/:id', GamesController.getGameById);
 
 // TEMPORARY DEBUG: Set zipUrl for a game
 router.post('/debug/set-zipurl', verifyToken, async (req, res) => {

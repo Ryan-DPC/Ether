@@ -30,7 +30,7 @@ export const useFriendsStore = defineStore('friends', {
         async fetchFriends() {
             this.loading = true
             try {
-                const response = await axios.get('/api/friends/list')
+                const response = await axios.get('/friends/list')
                 this.friends = response.data.friends || []
             } catch (error) {
                 console.error('Failed to fetch friends:', error)
@@ -41,7 +41,7 @@ export const useFriendsStore = defineStore('friends', {
 
         async fetchFriendRequests() {
             try {
-                const response = await axios.get('/api/friends/requests')
+                const response = await axios.get('/friends/requests')
                 this.friendRequests = response.data.requests || []
             } catch (error) {
                 console.error('Failed to fetch friend requests:', error)
@@ -51,7 +51,7 @@ export const useFriendsStore = defineStore('friends', {
         async sendFriendRequest(username: string) {
             try {
                 // First, search for the user by username to get their ID
-                const searchResponse = await axios.get(`/api/users/search?query=${encodeURIComponent(username)}`)
+                const searchResponse = await axios.get(`/users/search?query=${encodeURIComponent(username)}`)
 
                 if (!searchResponse.data.users || searchResponse.data.users.length === 0) {
                     throw new Error('Utilisateur introuvable')
@@ -60,7 +60,7 @@ export const useFriendsStore = defineStore('friends', {
                 const targetUser = searchResponse.data.users[0]
 
                 // Then send friend request with the user ID
-                const response = await axios.post('/api/friends/add', { friendId: targetUser.id })
+                const response = await axios.post('/friends/add', { friendId: targetUser.id })
                 return response.data
             } catch (error: any) {
                 if (error.message === 'Utilisateur introuvable') {
@@ -72,7 +72,7 @@ export const useFriendsStore = defineStore('friends', {
 
         async acceptFriendRequest(requestId: string) {
             try {
-                await axios.post('/api/friends/accept', { requestId })
+                await axios.post('/friends/accept', { requestId })
                 await this.fetchFriendRequests()
                 await this.fetchFriends()
             } catch (error) {
@@ -83,7 +83,7 @@ export const useFriendsStore = defineStore('friends', {
 
         async rejectFriendRequest(requestId: string) {
             try {
-                await axios.post(`/api/friends/reject/${requestId}`)
+                await axios.post(`/friends/reject/${requestId}`)
                 await this.fetchFriendRequests()
             } catch (error) {
                 console.error('Failed to reject friend request:', error)
@@ -93,7 +93,7 @@ export const useFriendsStore = defineStore('friends', {
 
         async removeFriend(friendId: string) {
             try {
-                await axios.delete(`/api/friends/${friendId}`)
+                await axios.delete(`/friends/${friendId}`)
                 await this.fetchFriends()
             } catch (error) {
                 console.error('Failed to remove friend:', error)

@@ -2,7 +2,7 @@ const UsersService = require('../../features/users/users.service');
 
 const isValidName = (name) => /^[a-zA-Z0-9_]{3,20}$/.test(name.trim());
 
-module.exports = (io, socket) => {
+module.exports = (socket) => {
     // Récupérer l'utilisateur associé au socketId si défini
     const checkUser = async () => {
         try {

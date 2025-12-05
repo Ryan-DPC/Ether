@@ -63,6 +63,36 @@ class Games {
         return result.modifiedCount > 0;
     }
 
+    static async updateGameVersion(gameId, version, manifestUrl, zipUrl) {
+        // Try to find by ID first, then by folder_name (which might be passed as gameId)
+        let query = {};
+        if (mongoose.Types.ObjectId.isValid(gameId)) {
+            query = { _id: gameId };
+        } else {
+            query = { folder_name: gameId };
+        }
+
+        const result = await GameModel.updateOne(
+            query,
+            {
+                $set: {
+                    version: version, // Note: Schema might need 'version' field if not present, checking...
+                    // The schema has 'manifestVersion', let's use that or add 'version' if strictly requested.
+                    // User asked for "version", "manifestUrl", "zipUrl".
+                    // Schema has: manifestVersion, manifestUrl, zipUrl.
+                    // I will map 'version' to 'manifestVersion' for consistency with existing schema, 
+                    // or I should add 'version' to schema if it's distinct.
+                    // Looking at schema: manifestVersion is present. I'll use that.
+                    manifestVersion: version,
+                    manifestUrl: manifestUrl,
+                    zipUrl: zipUrl,
+                    manifestUpdatedAt: new Date()
+                }
+            }
+        );
+        return result.modifiedCount > 0;
+    }
+
     static async getGamesByKeysOrIds(keys, ids) {
         return await GameModel.find({
             $or: [

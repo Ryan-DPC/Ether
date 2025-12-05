@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
+import { socketService } from '../services/socket'
 
 export const useUserStore = defineStore('user', {
     state: () => ({
@@ -13,7 +14,7 @@ export const useUserStore = defineStore('user', {
         async fetchProfile() {
             this.isLoading = true
             try {
-                const response = await axios.get('/api/users/me')
+                const response = await axios.get('/users/me')
                 if (response.data && response.data.user) {
                     this.user = response.data.user
                     this.isAuthenticated = true
@@ -30,37 +31,84 @@ export const useUserStore = defineStore('user', {
                 this.isLoading = false
             }
         },
-        async login(identifier: string, password: string) {
+        async updateProfile(data: any) {
             this.isLoading = true
             try {
-                const response = await axios.post('/api/auth/login', { username: identifier, password })
-                if (response.data && response.data.token) {
-                    localStorage.setItem('token', response.data.token)
-                    axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`
-                    this.isAuthenticated = true
-                    await this.fetchProfile()
+                const response = await axios.put('/users/me', data)
+                if (response.data && response.data.user) {
+                    this.user = response.data.user
+                    return response.data
                 }
             } catch (error) {
+                console.error('Failed to update profile:', error)
+                throw error
+            } finally {
+                this.isLoading = false
+            }
+        },
+        async login(identifier: string, password: string, remember: boolean = false) {
+            this.isLoading = true
+            try {
+                const response = await axios.post('/auth/login', { username: identifier, password })
+                if (response.data && response.data.token) {
+                    const token = response.data.token
+
+                    if (remember) {
+                        localStorage.setItem('token', token)
+                        sessionStorage.removeItem('token')
+                    } else {
+                        sessionStorage.setItem('token', token)
+                        localStorage.removeItem('token')
+                    }
+
+                    this.isAuthenticated = true
+
+                    // Fetch user profile
+                    await this.fetchProfile()
+
+                    // Connect WebSocket after successful login
+                    console.log('🔌 Connecting to WebSocket...')
+                    socketService.connect(token)
+                }
+            } catch (error) {
+                console.error('Login failed:', error)
                 throw error
             } finally {
                 this.isLoading = false
             }
         },
         initializeAuth() {
-            const token = localStorage.getItem('token')
+            // Check both storages
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token')
+
             if (token) {
-                axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+                console.log('🔌 Connecting to WebSocket (initializeAuth)...')
+                socketService.connect(token)
             }
+            return !!token
         },
         logout() {
             localStorage.removeItem('token')
-            delete axios.defaults.headers.common['Authorization']
+            sessionStorage.removeItem('token')
             this.user = null
             this.isAuthenticated = false
             this.friends = []
             this.friendRequests = []
+
+            // Disconnect WebSocket
+            console.log('🔌 Disconnecting WebSocket...')
+            socketService.disconnect()
+
             // Force reload to clear any other state or redirect
             window.location.href = '/login'
+        },
+        updateBalance(currency: string, newAmount: number) {
+            if (this.user && this.user.balances) {
+                const key = currency.toLowerCase();
+                if (this.user.balances[key] !== undefined) {
+                    this.user.balances[key] = newAmount;
+                }
+            }
         }
     }
 })

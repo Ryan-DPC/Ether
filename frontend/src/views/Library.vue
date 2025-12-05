@@ -1,55 +1,54 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useGameStore } from '../stores/gameStore'
 import { useCategoryStore } from '../stores/categoryStore'
-import { RouterLink } from 'vue-router'
+import { useFriendsStore } from '../stores/friendsStore'
+import { useUserStore } from '../stores/userStore'
 import axios from 'axios'
 import InstallPathSelector from '../components/InstallPathSelector.vue'
+// import defaultGameImg from '@/assets/images/default-game.svg'
+const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const gameStore = useGameStore()
 const categoryStore = useCategoryStore()
+const friendsStore = useFriendsStore()
 
-const selectedGameIndex = ref(0)
 const showAddGameModal = ref(false)
-const showCategoryModal = ref(false)
 const newGameKey = ref('')
 const newGameName = ref('')
-const newCategoryName = ref('')
-const newCategoryIcon = ref('')
 const pathSelector = ref<InstanceType<typeof InstallPathSelector> | null>(null)
+const searchQuery = ref('')
+const filterStatus = ref('all') // 'all', 'installed', 'favorites'
+
+// Social Sidebar State
+const newFriendUsername = ref('')
+const isAddingFriend = ref(false)
+const showAddFriendInput = ref(false)
+const showFilterMenu = ref(false)
+const currentFriendFilter = ref<'all' | 'online' | 'in-game'>('all')
+import { useChatStore } from '../stores/chatStore'
+const chatStore = useChatStore()
 
 // Installation state
 const installingGameId = ref<string | null>(null)
+const runningGameId = ref<string | null>(null)
 const installProgress = ref({
   progress: 0,
   speed: '',
   downloaded: '',
   total: '',
   eta: '',
-  type: 'download' // 'download' or 'extract'
-})
-
-const selectedGame = computed(() => {
-  return gameStore.myGames[selectedGameIndex.value] || null
-})
-
-const organizedGames = computed(() => {
-  if (!gameStore.myGames || gameStore.myGames.length === 0) return { installed: [], notInstalled: [] }
-  
-  const installed = gameStore.myGames.filter((g: any) => g.installed)
-  const notInstalled = gameStore.myGames.filter((g: any) => !g.installed)
-  
-  return { installed, notInstalled }
+  type: 'download'
 })
 
 onMounted(async () => {
   await gameStore.fetchMyGames()
   await categoryStore.fetchCategories()
+  await friendsStore.fetchFriends()
 
-  // Setup Electron installation event listeners
+  // Setup Electron listeners
   if (window.electronAPI) {
-    window.electronAPI.onInstallProgress((data) => {
-      console.log('Installation progress:', data)
+    window.electronAPI.onInstallProgress((data: any) => {
       if (installingGameId.value) {
         installProgress.value = {
           progress: data.progress,
@@ -62,156 +61,127 @@ onMounted(async () => {
       }
     })
 
-    window.electronAPI.onInstallComplete(async (data) => {
+    window.electronAPI.onInstallComplete(async (data: any) => {
       try {
-        // Sync status with backend
-        await axios.post('/api/installation/status', {
+        await axios.post('/installation/status', {
           gameId: data.gameId,
           status: 'installed',
           path: data.path
         })
         
-        // Update local state immediately to reflect "Installed" status in UI
-        const game = gameStore.myGames.find(g => (g._id === data.gameId || g.folder_name === data.gameId))
+        const game = gameStore.myGames.find((g: any) => (g._id === data.gameId || g.folder_name === data.gameId))
         if (game) {
           game.installed = true
           game.status = 'installed'
         }
 
-        // Show native notification
-        new Notification('Ether Desktop', {
-          body: `✅ ${data.gameName} installé avec succès!`,
-          silent: false
-        })
-
+        new Notification('Ether Desktop', { body: `✅ ${data.gameName} installed successfully!` })
         installingGameId.value = null
-        // Refresh game list in background
         await gameStore.fetchMyGames()
       } catch (error) {
         console.error('Failed to sync installation status:', error)
       }
     })
 
-    window.electronAPI.onInstallError((data) => {
-      new Notification('Ether Desktop', {
-        body: `❌ Erreur lors de l'installation de ${data.gameName}: ${data.error}`
-      })
-      installingGameId.value = null
-    })
-
-    // Check installation status for all games
-    const checkInstallations = async () => {
-      const installPath = localStorage.getItem('etherInstallPath')
-      if (!installPath || !window.electronAPI) return
-
-      for (const game of gameStore.myGames) {
-        if (game.folder_name) {
-          const isInstalled = await window.electronAPI.checkGameInstalled(installPath, game.folder_name)
-          if (isInstalled) {
-            game.installed = true
-            game.status = 'installed'
-          }
+    window.electronAPI.onGameStatus((data: any) => {
+        if (data.status === 'running') {
+            runningGameId.value = data.folderName
+        } else if (data.status === 'stopped') {
+            runningGameId.value = null
         }
-      }
-    }
-
-    
-    // Run check when games are loaded
-    watch(() => gameStore.myGames, () => {
-      if (gameStore.myGames.length > 0) {
-        checkInstallations()
-      }
-    }, { immediate: true })
+    })
   }
 })
 
-const selectGame = (index: number) => {
-  selectedGameIndex.value = index
-}
+// Computed Properties
+const filteredGames = computed(() => {
+  let games = gameStore.myGames || []
+  
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    games = games.filter((g: any) => g.game_name.toLowerCase().includes(query))
+  }
 
+  if (filterStatus.value === 'installed') {
+    games = games.filter((g: any) => g.installed)
+  }
+
+  return games
+})
+
+const recentlyPlayed = computed(() => {
+  // Mock logic: take first 3 installed games or just first 3
+  return gameStore.myGames.filter((g: any) => g.installed).slice(0, 3)
+})
+
+const featuredLibrary = computed(() => {
+    // Only show games marked as favorite
+    return gameStore.myGames.filter((g: any) => g.favorite)
+})
+
+const filteredFriends = computed(() => {
+  let friends = friendsStore.friends
+  
+  if (currentFriendFilter.value === 'online') {
+    friends = friends.filter(f => f.status === 'online' || f.status === 'in-game')
+  } else if (currentFriendFilter.value === 'in-game') {
+    friends = friends.filter(f => f.status === 'in-game')
+  }
+  
+  return friends
+})
+
+// Actions
 const handleAddGame = async () => {
   try {
-    // Call API to add game with key
-    const response = await fetch('/api/game-ownership/redeem-key', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const response = await axios.post('/game-ownership/redeem-key', {
         key: newGameKey.value,
         gameName: newGameName.value
-      })
     })
     
-    if (response.ok) {
-      alert('Jeu ajouté avec succès!')
+    if (response.status === 200 || response.status === 201) {
+      alert('Game added successfully!')
       showAddGameModal.value = false
       newGameKey.value = ''
       newGameName.value = ''
       await gameStore.fetchHomeData()
     } else {
-      const data = await response.json()
-      alert(data.message || 'Erreur lors de l\'ajout')
+      alert(response.data.message || 'Error adding game')
     }
-  } catch (error) {
-    alert('Erreur réseau')
+  } catch (error: any) {
+    alert(error.response?.data?.message || 'Network error')
   }
 }
 
-const handleCreateCategory = async () => {
-  try {
-    await categoryStore.createCategory(newCategoryName.value, newCategoryIcon.value)
-    newCategoryName.value = ''
-    newCategoryIcon.value = ''
-    alert('Catégorie créée!')
-  } catch (error) {
-    alert('Erreur lors de la création')
-  }
-}
-
-const installGame = async (gameId: string, gameName: string) => {
-  if (!confirm(`Installer ${gameName}?`)) return
+const installGame = async (game: any) => {
+  if (!confirm(`Install ${game.game_name}?`)) return
 
   try {
-    // Check if running in Electron
     if (!window.electronAPI) {
-      alert('L\'installation nécessite l\'application desktop Electron')
+      alert('Installation requires Electron app')
       return
     }
 
-    // Get install path from localStorage or ask user
     let installPath = localStorage.getItem('etherInstallPath')
-    
     if (!installPath) {
-      // Show path selector modal
       const selectedPath = await pathSelector.value?.show()
       installPath = selectedPath || null
-      
-      if (!installPath) return // User cancelled
-      
-      // Save path for future installations
+      if (!installPath) return
       localStorage.setItem('etherInstallPath', installPath)
     }
 
-    // Get game metadata from backend
-    const gameResponse = await axios.get(`/api/games/${gameId}`)
-    const game = gameResponse.data
-    
-    if (!game.zipUrl) {
-      alert('Fichier d\'installation non disponible')
-      return
-    }
-
-    // Start installation via Electron
+    const gameId = game._id || game.folder_name
     const result = await window.electronAPI.installGame(
       game.zipUrl,
       installPath,
       game.folder_name || gameId,
       gameId,
-      gameName
+      game.game_name,
+      game.version || '1.0.0'
     )
 
     if (result.success) {
       installingGameId.value = gameId
-      // Reset progress
       installProgress.value = {
         progress: 0,
         speed: '0 MB/s',
@@ -222,597 +192,516 @@ const installGame = async (gameId: string, gameName: string) => {
       }
     }
   } catch (error: any) {
-    console.error('Installation error:', error)
-    alert(error.message || 'Erreur lors de l\'installation')
+    alert(error.message || 'Installation error')
   }
 }
 
 const launchGame = async (folderName: string) => {
-  if (!window.electronAPI) {
-    // Fallback for web version - open in new tab
-    window.open(`/games/${folderName}`, '_blank')
-    return
-  }
+  if (!window.electronAPI) return
 
   try {
-    // Get install path from localStorage
     const installPath = localStorage.getItem('etherInstallPath')
-    
     if (!installPath) {
-      alert('Chemin d\'installation non configuré. Veuillez réinstaller le jeu.')
+      alert('Install path not configured.')
       return
     }
 
-    // Launch the game via Electron
-    const result = await window.electronAPI.launchGame(installPath, folderName)
+    const userStore = useUserStore()
+    const token = localStorage.getItem('token')
+    const plainUser = userStore.user ? JSON.parse(JSON.stringify(userStore.user)) : null;
     
-    if (result.success) {
-      // Show success notification
-      new Notification('Ether Desktop', {
-        body: `🎮 ${result.message}`,
-        silent: false
-      })
-    }
+    const userData = { user: plainUser, token: token }
+    await window.electronAPI.launchGame(installPath, folderName, userData)
   } catch (error: any) {
-    console.error('Launch error:', error)
-    alert(`Erreur lors du lancement: ${error.message || 'Erreur inconnue'}`)
+    alert(`Launch error: ${error.message}`)
   }
 }
 
+// Social Actions
+const toggleAddFriend = () => {
+  showAddFriendInput.value = !showAddFriendInput.value
+  if (showAddFriendInput.value) {
+    showFilterMenu.value = false
+    setTimeout(() => document.getElementById('lib-friend-input')?.focus(), 100)
+  }
+}
+
+const toggleFilterMenu = () => {
+  showFilterMenu.value = !showFilterMenu.value
+  if (showFilterMenu.value) {
+    showAddFriendInput.value = false
+  }
+}
+
+const setFriendFilter = (filter: 'all' | 'online' | 'in-game') => {
+  currentFriendFilter.value = filter
+  showFilterMenu.value = false
+}
+
+const addFriend = async () => {
+  if (!newFriendUsername.value.trim()) return
+  
+  isAddingFriend.value = true
+  try {
+    await friendsStore.sendFriendRequest(newFriendUsername.value.trim())
+    newFriendUsername.value = ''
+    alert('Request sent!')
+    showAddFriendInput.value = false
+  } catch (error: any) {
+    alert(error.message || 'Error sending request')
+  } finally {
+    isAddingFriend.value = false
+  }
+}
 </script>
 
 <template>
   <div class="library-layout">
-    <!-- Header with actions -->
-    <div class="library-header">
-      <h2>Ma Bibliothèque</h2>
-      <div class="header-actions">
-        <button @click="showCategoryModal = true" class="btn-secondary">
-          Gérer les catégories
-        </button>
-        <button @click="showAddGameModal = true" class="btn-primary">
-          Ajouter un jeu
-        </button>
+    <!-- Main Content -->
+    <div class="main-content">
+        
+        <!-- Header -->
+        <div class="library-header">
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input v-model="searchQuery" placeholder="Search your games...">
+            </div>
+            <div class="filters">
+                <button :class="{ active: filterStatus === 'all' }" @click="filterStatus = 'all'">All Games</button>
+                <button :class="{ active: filterStatus === 'installed' }" @click="filterStatus = 'installed'">Installed</button>
+                <button class="btn-icon" @click="showAddGameModal = true" title="Redeem Key"><i class="fas fa-key"></i></button>
+            </div>
+        </div>
+
+        <div class="scroll-area">
+            
+            <!-- Recently Played -->
+            <section v-if="recentlyPlayed.length > 0" class="section">
+                <h3><i class="fas fa-clock"></i> Recently Played</h3>
+                <div class="recent-row">
+                    <div v-for="game in recentlyPlayed" :key="game._id" class="recent-card">
+                        <div class="recent-bg" :style="{ backgroundImage: `url(${game.image_url || defaultGameImg})` }"></div>
+                        <div class="recent-content">
+                            <img :src="game.image_url || defaultGameImg" class="recent-logo">
+                            <div class="recent-info">
+                                <h4>{{ game.game_name }}</h4>
+                                <span class="status-text">Ready to Play</span>
+                            </div>
+                            <button @click="launchGame(game.folder_name)" class="btn-play-sm">
+                                <i class="fas fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Featured / Favorites -->
+            <section v-if="featuredLibrary.length > 0" class="section">
+                <h3><i class="fas fa-star"></i> Featured</h3>
+                <div class="featured-row">
+                    <div v-for="game in featuredLibrary" :key="game._id" class="feat-card">
+                        <img :src="game.image_url || defaultGameImg">
+                        <div class="feat-overlay">
+                            <h4>{{ game.game_name }}</h4>
+                            <button v-if="game.installed" @click="launchGame(game.folder_name)" class="btn-action">PLAY</button>
+                            <button v-else @click="installGame(game)" class="btn-action install-icon" title="Install">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- All Games Grid -->
+            <section class="section">
+                <h3><i class="fas fa-th"></i> All Games Filtered</h3>
+                <div class="games-grid">
+                    <div v-for="game in filteredGames" :key="game._id" class="grid-card">
+                        <div class="card-poster">
+                            <img :src="game.image_url || defaultGameImg">
+                            <div class="poster-overlay">
+                                <div v-if="installingGameId === (game._id || game.folder_name)" class="install-status">
+                                    <i class="fas fa-spinner fa-spin"></i> {{ installProgress.progress }}%
+                                </div>
+                                <button v-else-if="game.installed" @click="launchGame(game.folder_name)" class="btn-grid-play"><i class="fas fa-play"></i></button>
+                                <button v-else @click="installGame(game)" class="btn-grid-install"><i class="fas fa-download"></i></button>
+                            </div>
+                        </div>
+                        <div class="card-details">
+                            <h4>{{ game.game_name }}</h4>
+                            <div class="card-badges">
+                                <span v-if="game.installed" class="badge-installed">INSTALLED</span>
+                                <span class="badge-genre">{{ game.genre || 'Game' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Right Sidebar: Friends -->
+    <div class="friends-sidebar">
+        <div class="sidebar-header">
+            <h3>Social</h3>
+            <div class="sidebar-actions">
+                <button 
+                  class="icon-btn" 
+                  :class="{ active: showAddFriendInput }"
+                  @click="toggleAddFriend" 
+                  title="Add Friend"
+                >
+                  <i class="fas fa-user-plus"></i>
+                </button>
+                <button 
+                  class="icon-btn" 
+                  :class="{ active: showFilterMenu }"
+                  @click="toggleFilterMenu" 
+                  title="Filter"
+                >
+                  <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Add Friend Input -->
+        <div v-if="showAddFriendInput" class="sidebar-collapsible">
+            <div class="add-friend-row">
+                <input 
+                  id="lib-friend-input"
+                  v-model="newFriendUsername" 
+                  placeholder="Username..." 
+                  @keyup.enter="addFriend"
+                  class="sidebar-input"
+                >
+                <button @click="addFriend" :disabled="isAddingFriend" class="sidebar-btn-small">OK</button>
+            </div>
+        </div>
+
+        <!-- Filter Menu -->
+        <div v-if="showFilterMenu" class="sidebar-collapsible">
+            <div class="filter-row">
+                <button :class="['filter-pill', { active: currentFriendFilter === 'all' }]" @click="setFriendFilter('all')">All</button>
+                <button :class="['filter-pill', { active: currentFriendFilter === 'online' }]" @click="setFriendFilter('online')">Online</button>
+                <button :class="['filter-pill', { active: currentFriendFilter === 'in-game' }]" @click="setFriendFilter('in-game')">In-Game</button>
+            </div>
+        </div>
+
+        <div class="search-friends">
+            <i class="fas fa-search"></i>
+            <input placeholder="Search friends...">
+        </div>
+
+        <div class="friends-list">
+            <div v-if="friendsStore.loading" class="loading-friends">
+                <i class="fas fa-circle-notch fa-spin"></i>
+            </div>
+            
+            <template v-else>
+                <div v-for="friend in filteredFriends" :key="friend.id" class="friend-item">
+                    <div class="friend-avatar">
+                        <img :src="friend.profile_pic || 'https://via.placeholder.com/40'" alt="Avatar">
+                        <div class="status-dot" :class="friend.status"></div>
+                    </div>
+                    <div class="friend-info">
+                        <div class="friend-name">{{ friend.username }}</div>
+                        <div class="friend-status">{{ friend.status }}</div>
+                    </div>
+                    <button class="btn-msg" @click.stop="chatStore.openChat(friend)"><i class="fas fa-comment"></i></button>
+                </div>
+                
+                <div v-if="friendsStore.friends.length === 0" class="empty-friends">
+                    No friends online
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div v-if="showAddGameModal" class="modal-overlay" @click.self="showAddGameModal = false">
+      <div class="modal-glass">
+        <h3>Redeem Game Key</h3>
+        <input v-model="newGameKey" placeholder="XXXX-XXXX-XXXX" class="glass-input">
+        <input v-model="newGameName" placeholder="Game Name (Optional)" class="glass-input">
+        <button @click="handleAddGame" class="btn-neon full-width">Redeem</button>
       </div>
     </div>
 
-    <!-- Main content -->
-    <div class="library-content">
-      <!-- Game list sidebar -->
-      <div class="games-list-sidebar">
-        <div v-if="gameStore.isLoading" class="loading">Chargement...</div>
-        <div v-else-if="gameStore.myGames.length === 0" class="empty-library">
-          <p>Aucun jeu possédé.</p>
-        </div>
-        <div v-else>
-          <!-- Installed games -->
-          <div v-if="organizedGames.installed.length > 0" class="category-group">
-            <div class="category-header">
-              <span>▼ Installé</span>
-              <span class="count">{{ organizedGames.installed.length }}</span>
-            </div>
-            <div class="category-games">
-              <div 
-                v-for="(game, index) in organizedGames.installed" 
-                :key="game.game_key || index"
-                :class="['game-item', { active: selectedGameIndex === gameStore.myGames.indexOf(game) }]"
-                @click="selectGame(gameStore.myGames.indexOf(game))"
-              >
-                <img :src="game.image_url || '/assets/images/default-game.png'" class="game-thumb">
-                <div class="game-info">
-                  <div class="game-name">{{ game.game_name }}</div>
-                  <div class="game-status">Installé</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Not installed games -->
-          <div v-if="organizedGames.notInstalled.length > 0" class="category-group">
-            <div class="category-header">
-              <span>▼ Non installé</span>
-              <span class="count">{{ organizedGames.notInstalled.length }}</span>
-            </div>
-            <div class="category-games">
-              <div 
-                v-for="(game, index) in organizedGames.notInstalled" 
-                :key="game.game_key || index"
-                :class="['game-item', { active: selectedGameIndex === gameStore.myGames.indexOf(game) }]"
-                @click="selectGame(gameStore.myGames.indexOf(game))"
-              >
-                <img :src="game.image_url || '/assets/images/default-game.png'" class="game-thumb">
-                <div class="game-info">
-                  <div class="game-name">{{ game.game_name }}</div>
-                  <div class="game-status not-installed">Non installé</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Game details panel -->
-      <div class="game-details-panel">
-        <div v-if="selectedGame" class="details-content">
-          <div class="game-header-image">
-            <img :src="selectedGame.image_url || '/assets/images/default-game.png'">
-          </div>
-          <div class="game-details-info">
-            <h1>{{ selectedGame.game_name || 'Jeu sans nom' }}</h1>
-            <div class="game-metadata">
-              <p><strong>Prix d'achat:</strong> {{ (selectedGame.purchase_price || 0).toFixed(2) }} CHF</p>
-              <p v-if="selectedGame.is_manual_add && selectedGame.game_key">
-                <strong>Clé de jeu:</strong> <code>{{ selectedGame.game_key }}</code>
-              </p>
-            </div>
-            <div class="game-actions">
-              <div v-if="installingGameId === (selectedGame._id || selectedGame.folder_name)" class="install-progress">
-                <div class="progress-info">
-                  <span class="progress-status">
-                    {{ installProgress.type === 'download' ? 'Téléchargement' : 'Extraction' }} 
-                    {{ installProgress.progress }}%
-                  </span>
-                  <span class="progress-details">
-                    {{ installProgress.speed }} - ETA: {{ installProgress.eta }}
-                  </span>
-                </div>
-                <div class="progress-bar-container">
-                  <div class="progress-bar" :style="{ width: installProgress.progress + '%' }"></div>
-                </div>
-                <div class="progress-stats">
-                  {{ installProgress.downloaded }} / {{ installProgress.total }}
-                </div>
-              </div>
-              <button 
-                v-else-if="!selectedGame.installed" 
-                @click="installGame(selectedGame._id || selectedGame.folder_name, selectedGame.game_name)"
-                class="btn-action btn-install"
-                :disabled="!!installingGameId"
-              >
-                {{ installingGameId ? 'Installation en cours...' : 'Installer' }}
-              </button>
-              <button 
-                v-else
-                @click="launchGame(selectedGame.folder_name)"
-                class="btn-action btn-play"
-              >
-                ▶ Jouer
-              </button>
-              <RouterLink 
-                v-if="selectedGame.folder_name" 
-                :to="`/games/details/${selectedGame.folder_name}`" 
-                class="btn-link"
-              >
-                Voir les détails
-              </RouterLink>
-            </div>
-          </div>
-        </div>
-        <div v-else class="empty-details">
-          <p>Sélectionnez un jeu pour voir ses détails</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add Game Modal -->
-    <div v-if="showAddGameModal" class="modal-overlay" @click="showAddGameModal = false">
-      <div class="modal-content">
-        <span class="close" @click="showAddGameModal = false">&times;</span>
-        <h3>Ajouter un jeu avec une clé</h3>
-        <form @submit.prevent="handleAddGame">
-          <div class="form-group">
-            <label>Clé de jeu (depuis un site externe):</label>
-            <input 
-              v-model="newGameKey" 
-              type="text" 
-              placeholder="XXXX-XXXX-XXXX-XXXX" 
-              pattern="[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}"
-              required
-            >
-          </div>
-          <div class="form-group">
-            <label>Nom du jeu (optionnel):</label>
-            <input v-model="newGameName" type="text" placeholder="Nom du jeu">
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Ajouter</button>
-            <button type="button" @click="showAddGameModal = false" class="btn-secondary">Annuler</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Install Path Selector Modal -->
     <InstallPathSelector ref="pathSelector" />
-
-    <!-- Category Management Modal -->
-    <div v-if="showCategoryModal" class="modal" @click.self="showCategoryModal = false">
-      <div class="modal-content">
-        <span class="close" @click="showCategoryModal = false">&times;</span>
-        <h3>Gérer les catégories</h3>
-        <div class="categories-list">
-          <div v-for="category in categoryStore.categories" :key="category.id" class="category-item">
-            <div class="category-header">
-              <strong>{{ category.icon }} {{ category.name }}</strong>
-              <button @click="categoryStore.deleteCategory(category.id)" class="btn-danger-sm">Supprimer</button>
-            </div>
-          </div>
-          <p v-if="!categoryStore.categories.length">Aucune catégorie</p>
-        </div>
-        <hr>
-        <h4>Créer une nouvelle catégorie</h4>
-        <form @submit.prevent="handleCreateCategory" class="create-category-form">
-          <input v-model="newCategoryName" type="text" placeholder="Nom de la catégorie" required>
-          <input v-model="newCategoryIcon" type="text" placeholder="Icône (optionnel)" style="width: 60px;">
-          <button type="submit" class="btn-primary">Créer</button>
-        </form>
-      </div>
-    </div>
   </div>
 </template>
 
 <style scoped>
 .library-layout {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: #1a1a1a;
-  color: #fff;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    height: 100%;
+    background: transparent;
+    color: white;
+    overflow: hidden;
+}
+
+/* Main Content */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
 }
 
 .library-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  background: #2a2a2a;
-  border-bottom: 1px solid #3a3a3a;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(18, 12, 24, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 10;
 }
 
-.library-header h2 {
-  margin: 0;
-  font-size: 1.8rem;
+.search-bar {
+    position: relative;
+    width: 300px;
+}
+.search-bar input {
+    width: 100%;
+    padding: 10px 10px 10px 35px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: white;
+}
+.search-bar i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #b0b9c3;
 }
 
-.header-actions {
-  display: flex;
-  gap: 10px;
+.filters { display: flex; gap: 10px; }
+.filters button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #b0b9c3;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.filters button:hover, .filters button.active {
+    background: rgba(122, 252, 255, 0.1);
+    border-color: #7afcff;
+    color: #7afcff;
 }
 
-.library-content {
-  display: grid;
-  grid-template-columns: 350px 1fr;
-  flex: 1;
-  overflow: hidden;
+.scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 30px;
+}
+.scroll-area::-webkit-scrollbar { width: 6px; }
+.scroll-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+.section { margin-bottom: 40px; }
+.section h3 {
+    font-size: 1.1rem; color: #b0b9c3; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
 }
 
-.games-list-sidebar {
-  background: #1e1e1e;
-  border-right: 1px solid #3a3a3a;
-  overflow-y: auto;
+/* Recently Played */
+.recent-row {
+    display: flex; gap: 20px; overflow-x: auto; padding-bottom: 10px;
+}
+.recent-card {
+    min-width: 300px; height: 160px;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: transform 0.2s;
+}
+.recent-card:hover { transform: translateY(-4px); border-color: #ff7eb3; }
+
+.recent-bg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover; background-position: center;
+    filter: brightness(0.4);
+}
+.recent-content {
+    position: relative; z-index: 2;
+    height: 100%; padding: 20px;
+    display: flex; align-items: center; gap: 15px;
+}
+.recent-logo { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+.recent-info { flex: 1; }
+.recent-info h4 { margin: 0; font-size: 1.1rem; }
+.status-text { font-size: 0.8rem; color: #7afcff; }
+.btn-play-sm {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #ff7eb3; border: none; color: white;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 10px rgba(255, 126, 179, 0.4);
 }
 
-.category-group {
-  margin-bottom: 10px;
+/* Featured Row */
+.featured-row { display: flex; gap: 15px; }
+.feat-card {
+    width: 180px; height: 240px;
+    border-radius: 12px; overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.1);
 }
-
-.category-header {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: #2a2a2a;
-  cursor: pointer;
-  font-weight: 600;
+.feat-card img { width: 100%; height: 100%; object-fit: cover; }
+.feat-overlay {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    padding: 15px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    transform: translateY(100%); transition: transform 0.3s;
+    display: flex; flex-direction: column; gap: 8px;
 }
-
-.category-header .count {
-  color: #888;
-  font-size: 0.9rem;
-}
-
-.category-games {
-  background: #1a1a1a;
-}
-
-.game-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.game-item:hover {
-  background: #2a2a2a;
-}
-
-.game-item.active {
-  background: #3a3a4a;
-}
-
-.game-thumb {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.game-info {
-  flex: 1;
-  overflow: hidden;
-}
-
-.game-name {
-  font-weight: 600;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.game-status {
-  font-size: 0.85rem;
-  color: #4CAF50;
-}
-
-.game-status.not-installed {
-  color: #888;
-}
-
-.game-details-panel {
-  overflow-y: auto;
-  background: #0a0a0a;
-}
-
-.details-content {
-  padding: 20px;
-}
-
-.game-header-image {
-  width: 100%;
-  height: 400px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.game-header-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.game-details-info h1 {
-  font-size: 2rem;
-  margin-bottom: 16px;
-}
-
-.game-metadata {
-  margin-bottom: 24px;
-  color: #aaa;
-}
-
-.game-metadata code {
-  background: #2a2a2a;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-family: monospace;
-}
-
-.game-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
+.feat-card:hover .feat-overlay { transform: translateY(0); }
 .btn-action {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
+    background: #ff7eb3; border: none; color: white;
+    padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 700;
+}
+.btn-action.install { background: #7afcff; color: #120c18; }
+.btn-action.install-icon { 
+    background: #7afcff; color: #120c18; 
+    width: 32px; height: 32px; 
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    padding: 0;
 }
 
-.btn-install {
-  background: #4CAF50;
-  color: white;
+/* Grid */
+.games-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px;
+}
+.grid-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px; padding: 10px;
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: all 0.2s;
+}
+.grid-card:hover { background: rgba(255,255,255,0.08); transform: translateY(-4px); }
+
+.card-poster {
+    height: 200px; border-radius: 8px; overflow: hidden; position: relative; margin-bottom: 10px;
+}
+.card-poster img { width: 100%; height: 100%; object-fit: cover; }
+.poster-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+}
+.grid-card:hover .poster-overlay { opacity: 1; }
+
+.btn-grid-play, .btn-grid-install {
+    width: 50px; height: 50px; border-radius: 50%;
+    border: none; font-size: 1.2rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+.btn-grid-play { background: #ff7eb3; color: white; box-shadow: 0 0 15px rgba(255, 126, 179, 0.5); }
+.btn-grid-install { background: #7afcff; color: #120c18; box-shadow: 0 0 15px rgba(122, 252, 255, 0.5); }
+
+.card-details h4 { margin: 0 0 6px 0; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-badges { display: flex; gap: 6px; font-size: 0.7rem; }
+.badge-installed { color: #7afcff; background: rgba(122, 252, 255, 0.1); padding: 2px 6px; border-radius: 4px; }
+.badge-genre { color: #b0b9c3; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; }
+
+/* Sidebar */
+.friends-sidebar {
+    background: rgba(18, 12, 24, 0.6);
+    border-left: 1px solid rgba(255,255,255,0.05);
+    display: flex; flex-direction: column;
+}
+.sidebar-header {
+    padding: 20px; display: flex; justify-content: space-between; align-items: center;
+}
+.sidebar-actions button {
+    background: none; border: none; color: #b0b9c3; cursor: pointer; margin-left: 10px;
+    padding: 5px; border-radius: 4px; transition: all 0.2s;
+}
+.sidebar-actions button:hover, .sidebar-actions button.active { 
+    color: white; background: rgba(255,255,255,0.1);
 }
 
-.btn-install:hover {
-  background: #45a049;
+.sidebar-collapsible {
+    padding: 10px 20px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    animation: expand 0.2s ease-out;
 }
 
-.btn-play {
-  background: #4a9eff;
-  color: white;
+.add-friend-row { display: flex; gap: 8px; }
+.sidebar-input {
+    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px; padding: 6px 10px; color: white; font-size: 0.9rem;
+}
+.sidebar-input:focus { border-color: #7afcff; outline: none; }
+.sidebar-btn-small {
+    background: #7afcff; color: #120c18; border: none; border-radius: 4px;
+    padding: 0 12px; font-weight: bold; cursor: pointer;
 }
 
-.btn-play:hover {
-  background: #3a8eef;
+.filter-row { display: flex; gap: 5px; }
+.filter-pill {
+    flex: 1; background: transparent; border: 1px solid rgba(255,255,255,0.1);
+    color: #999; padding: 4px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
 }
+.filter-pill:hover { color: white; background: rgba(255,255,255,0.05); }
+.filter-pill.active { border-color: #7afcff; color: #7afcff; background: rgba(122, 252, 255, 0.1); }
 
-.btn-link {
-  padding: 12px 24px;
-  background: transparent;
-  border: 1px solid #555;
-  color: #fff;
-  text-decoration: none;
-  border-radius: 4px;
-  transition: all 0.2s;
+.search-friends {
+    margin: 0 20px 20px; position: relative;
 }
-
-.btn-link:hover {
-  background: #2a2a2a;
+.search-friends input {
+    width: 100%; padding: 8px 10px 8px 30px;
+    background: rgba(255,255,255,0.05); border: none; border-radius: 6px; color: white;
 }
+.search-friends i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #555; }
 
-.empty-library, .empty-details, .loading {
-  padding: 40px;
-  text-align: center;
-  color: #888;
+.friends-list { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
+.friend-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px; border-radius: 8px;
+    transition: background 0.2s;
+    cursor: pointer;
 }
+.friend-item:hover { background: rgba(255,255,255,0.05); }
 
-/* Modal styles */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+.friend-avatar { position: relative; width: 36px; height: 36px; }
+.friend-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.status-dot {
+    position: absolute; bottom: 0; right: 0; width: 10px; height: 10px;
+    border-radius: 50%; border: 2px solid #120c18;
 }
+.status-dot.online { background: #00ff00; }
+.status-dot.offline { background: #555; }
+.status-dot.in-game { background: #ff7eb3; }
 
-.modal-content {
-  background: #2a2a2a;
-  padding: 30px;
-  border-radius: 8px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  position: relative;
+.friend-info { flex: 1; overflow: hidden; }
+.friend-name { font-weight: 600; font-size: 0.9rem; }
+.friend-status { font-size: 0.75rem; color: #777; }
+
+.btn-msg { background: none; border: none; color: #b0b9c3; cursor: pointer; opacity: 0; transition: opacity 0.2s; }
+.friend-item:hover .btn-msg { opacity: 1; }
+
+/* Modals */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.8); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
 }
-
-.close {
-  position: absolute;
-  top: 10px;
-  right: 20px;
-  font-size: 28px;
-  cursor: pointer;
-  color: #fff;
+.modal-glass {
+  background: #1e1928; padding: 30px; border-radius: 16px; width: 400px;
+  border: 1px solid rgba(255,255,255,0.1);
 }
-
-.form-group {
-  margin-bottom: 16px;
+.glass-input {
+  width: 100%; padding: 12px; margin-bottom: 15px;
+  background: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 8px; color: white;
 }
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #ccc;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 10px;
-  background: #1e1e1e;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #fff;
-  font-family: inherit;
-}
-
-.form-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.btn-primary, .btn-secondary, .btn-danger-sm {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-primary {
-  background: #4CAF50;
-  color: white;
-}
-
-.btn-secondary {
-  background: #666;
-  color: white;
-}
-
-.btn-danger-sm {
-  padding: 5px 10px;
-  background: #d32f2f;
-  color: white;
-  font-size: 0.85rem;
-}
-
-.categories-list {
-  margin: 20px 0;
-}
-
-.category-item {
-  background: #1e1e1e;
-  padding: 16px;
-  margin-bottom: 12px;
-  border-radius: 6px;
-}
-
-.category-item .category-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.create-category-form {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  margin-top: 16px;
-}
-
-.create-category-form input {
-  flex: 1;
-  padding: 10px;
-  background: #1e1e1e;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #fff;
-}
-
-
-.install-progress {
-  width: 100%;
-  background: #1e1e1e;
-  padding: 12px;
-  border-radius: 4px;
-  border: 1px solid #333;
-}
-
-.progress-info {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
-}
-
-.progress-status {
-  font-weight: 600;
-  color: #4CAF50;
-}
-
-.progress-details {
-  color: #888;
-}
-
-.progress-bar-container {
-  height: 8px;
-  background: #333;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-
-.progress-bar {
-  height: 100%;
-  background: #4CAF50;
-  transition: width 0.3s ease;
-}
-
-.progress-stats {
-  font-size: 0.8rem;
-  color: #666;
-  text-align: right;
+.btn-neon {
+  background: #ff7eb3; color: white; padding: 12px; border: none; border-radius: 8px; width: 100%; font-weight: 700; cursor: pointer;
 }
 </style>

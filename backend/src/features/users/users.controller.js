@@ -16,6 +16,21 @@ class UsersController {
         }
     }
 
+    static async updateProfile(req, res) {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ success: false, message: 'Utilisateur non connecté.' });
+        }
+
+        try {
+            const updatedUser = await UsersService.updateProfile(userId, req.body);
+            res.json({ success: true, user: updatedUser, message: 'Profil mis à jour avec succès.' });
+        } catch (error) {
+            console.error('Erreur lors de la mise à jour du profil :', error.message);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     static async searchUsers(req, res) {
         try {
             const username = req.query.query;
@@ -79,6 +94,7 @@ class UsersController {
             const recentGames = await GameOwnership.find({ user_id: userId })
                 .sort({ purchase_date: -1 })
                 .limit(10)
+                .populate('game_id', 'name image_url')
                 .lean();
 
             res.json({ success: true, games: recentGames });

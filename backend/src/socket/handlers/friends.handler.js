@@ -1,6 +1,6 @@
 const Users = require('../../features/users/user.model');
 
-module.exports = (io, socket) => {
+module.exports = (socket) => {
     // User joins (set status) 
     socket.on('user:status-update', async (data) => {
         try {
@@ -9,8 +9,8 @@ module.exports = (io, socket) => {
 
             if (!userId) return;
 
-            // Broadcast status change to all friends
-            socket.broadcast.emit('friend:status-changed', {
+            // Send to central server to broadcast to friends
+            socket.emit('friend:status-changed:broadcast', {
                 userId,
                 status,
                 lobbyId
@@ -25,12 +25,17 @@ module.exports = (io, socket) => {
     // Friend request sent notification
     socket.on('friend:request-sent', (data) => {
         const { toUserId } = data;
-        io.to(toUserId).emit('friend:request-received');
+
+        // Forward to central server to deliver to recipient
+        socket.emit('friend:request-received:forward', { toUserId });
     });
 
     // Friend request accepted notification
     socket.on('friend:request-accepted-notification', (data) => {
         const { toUserId } = data;
-        io.to(toUserId).emit('friend:request-accepted');
+
+        // Forward to central server to deliver to recipient
+        socket.emit('friend:request-accepted:forward', { toUserId });
     });
 };
+

@@ -4,61 +4,53 @@ const cloudinary = require('cloudinary').v2;
 
 /**
  * @route GET /api/dev-games
- * @desc Get list of development games with their manifests from Cloudinary
+ * @desc Get list of development games directly from Cloudinary
  */
 router.get('/', async (req, res) => {
     try {
-        // Read slug.json from local filesystem to get dev games list
-        const fs = require('fs').promises;
-        const path = require('path');
-
-        // Check if running in Docker or locally
-        const isDocker = require('fs').existsSync('/usr/src/me');
-        const slugPath = isDocker
-            ? '/usr/src/me/slug.json'
-            : path.join(__dirname, '../../../me/slug.json');
-
-        const slugData = await fs.readFile(slugPath, 'utf8');
-        const data = JSON.parse(slugData);
-        const devGamesData = data.games || {};
+        // Search for all manifest.json files in games/dev folder
+        const searchResult = await cloudinary.search
+            .expression('folder:games/dev/* AND filename:manifest')
+            .max_results(50)
+            .execute();
 
         const games = [];
 
-        // For each game in slug.json, fetch manifest and construct URLs
-        for (const [slug, gameInfo] of Object.entries(devGamesData)) {
+        // Process each found manifest
+        for (const resource of searchResult.resources) {
             try {
-                // Construct manifest URL: games/dev/{slug}/manifest.json
-                const manifestUrl = cloudinary.url(`games/dev/${slug}/manifest.json`, {
-                    resource_type: 'raw'
-                });
+                // Extract slug from folder path: games/dev/{slug}/manifest.json
+                const folderParts = resource.folder.split('/');
+                const slug = folderParts[folderParts.length - 1];
 
-                // Fetch manifest content
+                // Fetch the manifest content
+                const manifestUrl = resource.secure_url;
                 const manifestResponse = await fetch(manifestUrl);
+
                 if (manifestResponse.ok) {
                     const manifest = await manifestResponse.json();
 
-                    // Add URLs and metadata
+                    // Add Cloudinary URLs
                     manifest.manifestUrl = manifestUrl;
                     manifest.zipUrl = cloudinary.url(`games/dev/${slug}/${slug}.zip`, {
                         resource_type: 'raw'
                     });
-                    manifest.imageUrl = cloudinary.url(`games/dev/${slug}/image.png`, {
-                        resource_type: 'image'
+                    manifest.imageUrl = cloudinary.url(`games/dev/${slug}/image`, {
+                        resource_type: 'image',
+                        format: 'png'
                     });
                     manifest.defaultImageUrl = cloudinary.url('games/default-game', {
                         resource_type: 'image',
                         format: 'png'
                     });
-                    manifest.price = gameInfo.price;
-                    manifest.enabled = gameInfo.enabled;
-                    manifest.slug = slug; // Add slug
+
+                    // Ensure slug is set
+                    manifest.slug = slug;
 
                     games.push(manifest);
-                } else {
-                    console.log(`Manifest not found for ${slug} (${manifestResponse.status})`);
                 }
-            } catch (error) {
-                console.error(`Error fetching manifest for ${slug}:`, error.message);
+            } catch (err) {
+                console.error(`Error processing game manifest: ${err.message}`);
             }
         }
 
@@ -68,7 +60,7 @@ router.get('/', async (req, res) => {
             games
         });
     } catch (error) {
-        console.error('Error fetching dev games:', error);
+        console.error('Error fetching dev games from Cloudinary:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -84,6 +76,7 @@ router.get('/:gameId', async (req, res) => {
     try {
         const { gameId } = req.params;
 
+        // Construct manifest URL directly
         const manifestUrl = cloudinary.url(`games/dev/${gameId}/manifest.json`, {
             resource_type: 'raw'
         });
@@ -99,25 +92,6 @@ router.get('/:gameId', async (req, res) => {
 
         const manifest = await manifestResponse.json();
 
-        // Read slug.json to get extra metadata (price, enabled, etc.)
-        const fs = require('fs').promises;
-        const path = require('path');
-        const isDocker = require('fs').existsSync('/usr/src/me');
-        const slugPath = isDocker
-            ? '/usr/src/me/slug.json'
-            : path.join(__dirname, '../../../me/slug.json');
-
-        let gameInfo = {};
-        try {
-            const slugData = await fs.readFile(slugPath, 'utf8');
-            const data = JSON.parse(slugData);
-            if (data.games && data.games[gameId]) {
-                gameInfo = data.games[gameId];
-            }
-        } catch (e) {
-            console.warn('Could not read slug.json for game details:', e);
-        }
-
         // Add URLs
         manifest.manifestUrl = manifestUrl;
         manifest.zipUrl = cloudinary.url(`games/dev/${gameId}/${gameId}.zip`, {
@@ -132,11 +106,8 @@ router.get('/:gameId', async (req, res) => {
             format: 'png'
         });
 
-        // Merge slug.json info
-        manifest.price = gameInfo.price !== undefined ? gameInfo.price : manifest.price;
-        manifest.enabled = gameInfo.enabled !== undefined ? gameInfo.enabled : manifest.enabled;
-        manifest.gameName = gameInfo.gameName || manifest.gameName;
-        manifest.slug = gameId; // Add slug
+        // Ensure slug is set
+        manifest.slug = gameId;
 
         res.json({
             success: true,

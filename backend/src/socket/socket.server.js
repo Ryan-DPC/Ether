@@ -1,37 +1,59 @@
-const { Server } = require('socket.io');
+const { io } = require('socket.io-client');
 const socketHandlers = require('./socket.handlers');
 
-let io;
+let centralSocket;
 
-const initSocketServer = (server) => {
-    io = new Server(server, {
-        cors: {
-            origin: '*', // À restreindre en production
-            methods: ['GET', 'POST']
+const connectToCentralServer = () => {
+    if (centralSocket) return centralSocket;
+
+    const centralServerUrl = process.env.CENTRAL_WEBSOCKET_URL || process.env.WS_URL;
+
+    if (!centralServerUrl) {
+        console.error('CENTRAL_WEBSOCKET_URL is not defined in environment variables');
+        return;
+    }
+
+    console.log(`Connecting to central WebSocket server at ${centralServerUrl}...`);
+
+    centralSocket = io(centralServerUrl, {
+        reconnection: true,
+        reconnectionDelay: 10000, // Start with 10 seconds
+        reconnectionDelayMax: 60000, // Max 60 seconds
+        reconnectionAttempts: Infinity,
+        transports: ['websocket'],
+        randomizationFactor: 0.1, // Reduce randomization to ensure minimum delay
+        auth: {
+            token: process.env.WS_CENTRAL_TOKEN // Add authentication token
         }
     });
 
-    console.log('WebSocket server initialized');
+    centralSocket.on('connect', () => {
+        console.log(`Connected to central WebSocket server: ${centralSocket.id}`);
 
-    io.on('connection', (socket) => {
-        console.log(`Client connected: ${socket.id}`);
-
-        // Initialiser les handlers pour ce socket
-        socketHandlers(io, socket);
-
-        socket.on('disconnect', () => {
-            console.log(`Client disconnected: ${socket.id}`);
-        });
+        // Initialize handlers for this client socket
+        socketHandlers(centralSocket);
     });
 
-    return io;
+    centralSocket.on('disconnect', (reason) => {
+        console.log(`Disconnected from central WebSocket server: ${reason}`);
+    });
+
+    centralSocket.on('connect_error', (error) => {
+        console.error('Connection error to central WebSocket server:', error.message);
+        console.error('Socket URL:', centralServerUrl);
+        if (error.description) console.error('Error description:', error.description);
+        if (error.context) console.error('Error context:', error.context);
+    });
+
+    return centralSocket;
 };
 
-const getIO = () => {
-    if (!io) {
-        throw new Error('Socket.io not initialized!');
+const getCentralSocket = () => {
+    if (!centralSocket) {
+        throw new Error('Central WebSocket client not initialized!');
     }
-    return io;
+    return centralSocket;
 };
 
-module.exports = { initSocketServer, getIO };
+module.exports = { connectToCentralServer, getCentralSocket };
+

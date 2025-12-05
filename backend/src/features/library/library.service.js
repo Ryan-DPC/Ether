@@ -233,7 +233,7 @@ class LibraryService {
                 // Vérifier si c'est un jeu Electron (.exe)
                 // NOTE: Assuming games are stored in ../../../games relative to this file
                 // backend/src/features/library -> ../../../games
-                const gameManifestPath = path.join(__dirname, '../../../../games', game.folder_name || '', 'manifest.json');
+                const gameManifestPath = path.join(__dirname, '../../../games', game.folder_name || '', 'manifest.json');
                 if (fs.existsSync(gameManifestPath)) {
                     const manifest = JSON.parse(fs.readFileSync(gameManifestPath, 'utf8'));
                     if (manifest.platform === 'exe' || manifest.entryPoint?.endsWith('.exe')) {
@@ -493,7 +493,7 @@ class LibraryService {
 
             if (gameFolderName) {
                 // backend/src/features/library -> ../../../games
-                gameFolderPath = path.join(__dirname, '../../../../games', gameFolderName);
+                gameFolderPath = path.join(__dirname, '../../../games', gameFolderName);
 
                 // Installer automatiquement les dépendances npm si nécessaire
                 try {
@@ -539,7 +539,7 @@ class LibraryService {
                 if (folderName) {
                     try {
                         // Vérifier si c'est un jeu Electron (.exe)
-                        const gameManifestPath = path.join(__dirname, '../../../../games', folderName, 'manifest.json');
+                        const gameManifestPath = path.join(__dirname, '../../../games', folderName, 'manifest.json');
                         if (fs.existsSync(gameManifestPath)) {
                             const manifest = JSON.parse(fs.readFileSync(gameManifestPath, 'utf8'));
                             if (manifest.platform === 'exe' || manifest.entryPoint?.endsWith('.exe')) {
@@ -561,6 +561,7 @@ class LibraryService {
 
                 return {
                     game_key: r.game_key, // game_key est le token principal
+                    _id: r.game_id?._id, // Added _id (Game ID) as per spec
                     installed: r.installed || false,
                     purchase_price: r.purchase_price,
                     current_price: r.current_price,

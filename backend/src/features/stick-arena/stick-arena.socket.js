@@ -2,9 +2,13 @@
 // Manages matchmaking, game rooms, and real-time game state synchronization
 
 const StickArenaStatsService = require('./stick-arena-stats.service');
+const logger = require('../../utils/logger');
 
 const rooms = new Map();
 let waitingPlayers = new Map(); // playerId -> socket
+
+// Debug mode - set to true via env var or runtime config if needed
+const DEBUG_MODE = process.env.STICK_ARENA_DEBUG === 'true';
 
 class GameRoom {
     constructor(player1Socket, player2Socket, player1Id, player2Id) {
@@ -28,6 +32,8 @@ class GameRoom {
             roundActive: false
         };
         this.createdAt = Date.now();
+
+        logger.info(`[Stick Arena] Room created: ${this.id} (${player1Id} vs ${player2Id})`);
     }
 
     broadcast(event, data) {
@@ -46,21 +52,24 @@ class GameRoom {
     }
 }
 
-const handleStickArena = (io, socket) => {
-    console.log(`[Stick Arena] Player ${socket.id} connected to stick arena`);
+const handleStickArena = (socket) => {
+    // Only log connection in debug mode to reduce noise
+    if (DEBUG_MODE) {
+        logger.debug(`[Stick Arena] Socket connected: ${socket.id}`);
+    }
 
     // Join stick arena namespace
     socket.on('stick-arena:join', (data) => {
         const userId = data.userId || socket.id;
         socket.userId = userId;
-        console.log(`[Stick Arena] Player ${userId} joined stick arena`);
+        logger.info(`[Stick Arena] Player joined: ${userId}`);
         socket.emit('stick-arena:joined', { userId });
     });
 
     // Matchmaking - Find opponent
     socket.on('stick-arena:findMatch', (data) => {
         const userId = data.userId || socket.id;
-        console.log(`[Stick Arena] Player ${userId} looking for match`);
+        if (DEBUG_MODE) logger.debug(`[Stick Arena] Matchmaking request: ${userId}`);
 
         // Check if player is already waiting
         if (waitingPlayers.has(userId)) {
@@ -74,7 +83,7 @@ const handleStickArena = (io, socket) => {
             // No one waiting, add this player to queue
             waitingPlayers.set(userId, socket);
             socket.emit('stick-arena:waiting', { message: 'Waiting for opponent...' });
-            console.log(`[Stick Arena] Player ${userId} added to queue`);
+            if (DEBUG_MODE) logger.debug(`[Stick Arena] Added to queue: ${userId}`);
         } else {
             // Match with first waiting player
             const [opponentId, opponentSocket] = waitingEntries[0];
@@ -103,7 +112,7 @@ const handleStickArena = (io, socket) => {
                 opponentSocket: opponentSocket.id
             });
 
-            console.log(`[Stick Arena] Match created: ${opponentId} vs ${userId} in room ${room.id}`);
+            logger.info(`[Stick Arena] Match started: ${opponentId} vs ${userId} (Room: ${room.id})`);
         }
     });
 
@@ -111,7 +120,7 @@ const handleStickArena = (io, socket) => {
     socket.on('stick-arena:cancelMatch', (data) => {
         const userId = data.userId || socket.id;
         waitingPlayers.delete(userId);
-        console.log(`[Stick Arena] Player ${userId} cancelled matchmaking`);
+        if (DEBUG_MODE) logger.debug(`[Stick Arena] Matchmaking cancelled: ${userId}`);
     });
 
     // Player state update
@@ -195,6 +204,8 @@ const handleStickArena = (io, socket) => {
                 }
             });
 
+            logger.info(`[Stick Arena] Round ended in room ${room.id}. Winner: Player ${data.winnerId}`);
+
             // Update stats if players are authenticated
             try {
                 const winner = data.winnerId === 1 ? room.player1 : room.player2;
@@ -224,7 +235,7 @@ const handleStickArena = (io, socket) => {
                     });
                 }
             } catch (error) {
-                console.error('[Stick Arena] Error updating stats:', error.message);
+                logger.error(`[Stick Arena] Error updating stats: ${error.message}`);
             }
         }
     });
@@ -243,13 +254,13 @@ const handleStickArena = (io, socket) => {
                 socket.emit('stick-arena:matchHistory', history);
             }
         } catch (error) {
-            console.error('Error getting match history:', error);
+            logger.error(`[Stick Arena] Error getting match history: ${error.message}`);
         }
     });
 
     // Disconnect handler
     socket.on('disconnect', () => {
-        console.log(`[Stick Arena] Player ${socket.id} disconnected`);
+        if (DEBUG_MODE) logger.debug(`[Stick Arena] Socket disconnected: ${socket.id}`);
 
         // Remove from waiting queue
         const userId = socket.userId || socket.id;
@@ -285,7 +296,7 @@ function handlePlayerLeave(socket) {
 
         // Delete the room
         rooms.delete(room.id);
-        console.log(`[Stick Arena] Room ${room.id} closed`);
+        logger.info(`[Stick Arena] Room closed: ${room.id} (Player left)`);
     }
 }
 

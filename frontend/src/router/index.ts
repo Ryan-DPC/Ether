@@ -24,6 +24,21 @@ const router = createRouter({
             component: Register
         },
         {
+            path: '/forgot-password',
+            name: 'forgot-password',
+            component: () => import('../views/ForgotPassword.vue')
+        },
+        {
+            path: '/reset-password',
+            name: 'reset-password',
+            component: () => import('../views/ResetPassword.vue')
+        },
+        {
+            path: '/api/auth/github/callback',
+            name: 'auth-callback',
+            component: () => import('../views/AuthCallback.vue')
+        },
+        {
             path: '/',
             component: MainLayout,
             children: [
@@ -53,6 +68,12 @@ const router = createRouter({
                     path: 'store',
                     name: 'store',
                     component: Store,
+                    meta: { requiresAuth: true }
+                },
+                {
+                    path: 'social',
+                    name: 'social',
+                    component: () => import('../views/Social.vue'),
                     meta: { requiresAuth: true }
                 },
                 {
@@ -94,13 +115,19 @@ const router = createRouter({
                     path: 'privacy',
                     name: 'privacy',
                     component: () => import('../views/Privacy.vue')
+                },
+                {
+                    path: 'settings',
+                    name: 'settings',
+                    component: () => import('../views/Settings.vue'),
+                    meta: { requiresAuth: true }
                 }
             ]
         }
     ]
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
     const userStore = useUserStore()
 
     // If going to login/register, just proceed
@@ -114,7 +141,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // Check if we have a token but not authenticated yet
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token')
     if (token && !userStore.isAuthenticated) {
         // Token exists, try to fetch profile
         try {

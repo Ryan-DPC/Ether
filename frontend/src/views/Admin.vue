@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -23,13 +24,8 @@ onMounted(async () => {
 const fetchSyncStatus = async () => {
   isLoading.value = true
   try {
-    const response = await fetch('/api/admin/sync-status', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    })
-    const data = await response.json()
-    syncStatus.value = data
+    const response = await axios.get('/admin/sync-status')
+    syncStatus.value = response.data
   } catch (error) {
     console.error('Failed to fetch sync status:', error)
     alert('Erreur lors de la récupération du statut')
@@ -45,16 +41,9 @@ const syncGames = async (force: boolean = false) => {
 
   isSyncing.value = true
   try {
-    const response = await fetch('/api/admin/sync-games', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ force })
-    })
+    const response = await axios.post('/admin/sync-games', { force })
     
-    const data = await response.json()
+    const data = response.data
     lastSyncResults.value = data
     
     if (data.success) {
@@ -81,14 +70,9 @@ const syncDB = async () => {
   }
 
   try {
-    const response = await fetch('/api/admin/sync-db', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
-    })
+    const response = await axios.post('/admin/sync-db')
     
-    const data = await response.json()
+    const data = response.data
     alert(data.message || 'DB sync complet')
   } catch (error) {
     console.error('DB sync failed:', error)

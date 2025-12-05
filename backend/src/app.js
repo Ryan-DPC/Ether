@@ -1,3 +1,4 @@
+require('express-async-errors');
 const express = require('express');
 const connectDB = require('./config/db');
 const { connectRedis } = require('./config/redis');
@@ -11,6 +12,7 @@ const { generalLimiter, authLimiter } = require('./middleware/rateLimit');
 const sanitizerMiddleware = require('./middleware/sanitizer');
 const xssCleanMiddleware = require('./middleware/xssClean');
 const errorHandler = require('./utils/errorHandler');
+const requestLogger = require('./middleware/requestLogger');
 
 // Route imports
 const authRoutes = require('./features/auth/auth.routes');
@@ -27,8 +29,12 @@ const gameCategoriesRoutes = require('./features/game-categories/game-categories
 const gameOwnershipRoutes = require('./features/game-ownership/game-ownership.routes');
 const installationRoutes = require('./features/installation/installation.routes');
 const stickArenaRoutes = require('./features/stick-arena/stick-arena.routes');
+const wsBridgeRoutes = require('./features/ws-bridge/ws-bridge.routes');
 
 const app = express();
+
+// Trust Proxy (Required for Render / Heroku / etc)
+app.set('trust proxy', 1);
 
 // Connect to Database
 connectDB();
@@ -43,11 +49,8 @@ DefaultImageService.ensureDefaultImage();
 const cronService = new CronService();
 cronService.start();
 
-// Start Game Sync Scheduler
-const gameSyncScheduler = require('./schedulers/gameSyncScheduler');
-gameSyncScheduler.start();
-
 // Middleware
+app.use(requestLogger);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(helmetMiddleware);
@@ -58,6 +61,9 @@ app.use(xssCleanMiddleware);
 
 // Serve static files for stick fighting game
 app.use(express.static(require('path').join(__dirname, '../../me/stick fighting')));
+
+// Serve public files (e.g. game downloads)
+app.use('/public', express.static(require('path').join(__dirname, '../public')));
 
 // Routes
 app.use('/api/auth', authLimiter, authRoutes);
@@ -74,9 +80,38 @@ app.use('/api/game-categories', gameCategoriesRoutes);
 app.use('/api/game-ownership', gameOwnershipRoutes);
 app.use('/api/installation', installationRoutes);
 app.use('/api/stick-arena', stickArenaRoutes);
+app.use('/api/ws-bridge', wsBridgeRoutes);
 
+// Explicitly handle /socket.io/ to prevent HTML 404s if frontend connects here by mistake
+app.use('/socket.io/', (req, res) => {
+    res.status(404).json({
+        success: false,
+        message: 'This backend does not support WebSockets. Please connect to the Central Server.'
+    });
+});
+
+
+
+// Root Route
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Ether Backend API is running',
+        version: '1.0.0'
+    });
+});
 
 // Health Check
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        success: true,
+        status: 'ok',
+        timestamp: new Date(),
+        uptime: process.uptime()
+    });
+});
+
+// Legacy Ping (keep for backward compatibility if needed)
 app.get('/api/ping', (req, res) => {
     res.status(200).json({ success: true, message: 'pong' });
 });

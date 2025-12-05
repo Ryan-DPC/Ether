@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
         isAdmin: { type: Boolean, default: false },
         tokens: { type: Number, default: 1000 },
         currency: { type: String, enum: ['CHF', 'EUR', 'USD', 'GBP'], default: 'CHF' },
+        language: { type: String, default: 'English' },
         balances: {
             chf: { type: Number, default: 0 },
             eur: { type: Number, default: 0 },
@@ -20,6 +21,24 @@ const userSchema = new mongoose.Schema(
         profile_pic: { type: String, default: null },
         elo: { type: Number, default: 1600 },
         socket_id: { type: String, default: null, index: true },
+        // New fields for Cyber Sakura profile
+        xp: { type: Number, default: 0 },
+        level: { type: Number, default: 1 },
+        status_message: { type: String, default: 'Online' },
+        favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }],
+        resetPasswordToken: { type: String, default: null },
+        resetPasswordExpires: { type: Date, default: null },
+        bio: { type: String, default: '' },
+        social_links: {
+            twitter: { type: String, default: '' },
+            discord: { type: String, default: '' },
+            website: { type: String, default: '' }
+        },
+        notification_preferences: {
+            email_updates: { type: Boolean, default: true },
+            push_notifications: { type: Boolean, default: true },
+            marketing_emails: { type: Boolean, default: false }
+        }
     },
     { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
@@ -40,6 +59,16 @@ class Users {
 
     static async getUserByUsername(username) {
         const doc = await UserModel.findOne({ username }).lean();
+        if (!doc) return null;
+        return { ...doc, id: doc._id.toString() };
+    }
+
+    static async getUserByBaseUsername(baseUsername) {
+        // Case insensitive search for username starting with baseUsername followed by #
+        // Escape special regex characters in baseUsername just in case
+        const escapedUsername = baseUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`^${escapedUsername}#[a-zA-Z0-9]{4}$`, 'i');
+        const doc = await UserModel.findOne({ username: regex }).lean();
         if (!doc) return null;
         return { ...doc, id: doc._id.toString() };
     }
@@ -78,7 +107,12 @@ class Users {
     }
 
     static async getUserById(userId) {
-        const doc = await UserModel.findById(userId, { username: 1, tokens: 1, elo: 1, profile_pic: 1, profile_picture: 1, currency: 1, balances: 1, isAdmin: 1 }).lean();
+        const doc = await UserModel.findById(userId, {
+            username: 1, tokens: 1, elo: 1, profile_pic: 1, profile_picture: 1,
+            currency: 1, balances: 1, isAdmin: 1, created_at: 1,
+            xp: 1, level: 1, status_message: 1, favorite_games: 1,
+            bio: 1, social_links: 1, notification_preferences: 1
+        }).populate('favorite_games', 'name image_url').lean();
         if (!doc) return null;
         const user = { id: doc._id.toString(), ...doc };
         if (!user.profile_picture && user.profile_pic) {
@@ -147,6 +181,15 @@ class Users {
 
     static async removeSocketId(socketId) {
         await UserModel.updateOne({ socket_id: socketId }, { $unset: { socket_id: 1 } });
+    }
+
+    static async getUserByResetToken(token) {
+        const doc = await UserModel.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }
+        }).lean();
+        if (!doc) return null;
+        return { ...doc, id: doc._id.toString() };
     }
 }
 

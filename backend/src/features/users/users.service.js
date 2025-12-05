@@ -1,13 +1,56 @@
 const Users = require('./user.model');
 
+const GameOwnership = require('../game-ownership/game-ownership.model');
+
 class UsersService {
     static async getUserProfile(userId) {
         try {
             const user = await Users.getUserById(userId);
             if (!user) throw new Error('Utilisateur introuvable.');
-            return user;
+
+            const gamesOwned = await GameOwnership.countDocuments({ user_id: userId, status: 'owned' });
+
+            return { ...user, games_owned: gamesOwned };
         } catch (error) {
             throw new Error(`Erreur lors de la récupération du profil utilisateur : ${error.message}`);
+        }
+    }
+
+    static async updateProfile(userId, data) {
+        const allowedUpdates = ['username', 'email', 'language', 'bio', 'social_links', 'notification_preferences'];
+        const updates = {};
+
+        Object.keys(data).forEach(key => {
+            if (allowedUpdates.includes(key)) {
+                updates[key] = data[key];
+            }
+        });
+
+        if (Object.keys(updates).length === 0) {
+            // If no valid fields, just return the current profile without error, or throw error?
+            // Let's throw error to be explicit.
+            throw new Error('Aucune donnée valide à mettre à jour.');
+        }
+
+        try {
+            // Check if username or email is taken if they are being updated
+            if (updates.username) {
+                const existingUser = await Users.getUserByUsername(updates.username);
+                if (existingUser && existingUser.id !== userId) {
+                    throw new Error('Ce nom d\'utilisateur est déjà pris.');
+                }
+            }
+            if (updates.email) {
+                const existingUser = await Users.getUserByEmail(updates.email);
+                if (existingUser && existingUser.id !== userId) {
+                    throw new Error('Cet email est déjà utilisé.');
+                }
+            }
+
+            await Users.updateUser(userId, updates);
+            return await this.getUserProfile(userId);
+        } catch (error) {
+            throw new Error(error.message);
         }
     }
 

@@ -1,5 +1,6 @@
 const Items = require('../features/items/items.model');
 const ItemsService = require('../features/items/items.service');
+const logger = require('../utils/logger');
 
 class ItemsSyncService {
     /**
@@ -7,13 +8,13 @@ class ItemsSyncService {
      */
     static async syncCloudinaryToMongoDB() {
         try {
-            console.log('\n========== Syncing Items: Cloudinary → MongoDB ==========');
+            // logger.debug('========== Syncing Items: Cloudinary → MongoDB ==========');
 
             // Fetch items from Cloudinary
             const cloudinaryItems = await ItemsService.getItemsFromCloudinary();
 
             if (!cloudinaryItems || cloudinaryItems.length === 0) {
-                console.log('[ItemsSync] No items found on Cloudinary');
+                logger.debug('[ItemsSync] No items found on Cloudinary');
                 return { success: true, synced: 0, updated: 0, created: 0 };
             }
 
@@ -45,7 +46,7 @@ class ItemsSyncService {
                             }
                         );
                         updated++;
-                        console.log(`  ✓ Updated: ${item.name}`);
+                        // logger.debug(`  ✓ Updated: ${item.name}`);
                     } else {
                         // Create new item
                         await Items.create({
@@ -59,10 +60,10 @@ class ItemsSyncService {
                             created_at: new Date()
                         });
                         created++;
-                        console.log(`  + Created: ${item.name}`);
+                        logger.info(`  + Created: ${item.name}`);
                     }
                 } catch (itemError) {
-                    console.error(`  ✗ Failed to sync ${item.name}:`, itemError.message);
+                    logger.error(`  ✗ Failed to sync ${item.name}: ${itemError.message}`);
                 }
             }
 
@@ -72,15 +73,15 @@ class ItemsSyncService {
                     cloudinary_id: { $nin: validCloudinaryIds }
                 });
                 if (deleteResult.deletedCount > 0) {
-                    console.log(`  🗑️  Deleted ${deleteResult.deletedCount} obsolete items from MongoDB`);
+                    logger.info(`  🗑️  Deleted ${deleteResult.deletedCount} obsolete items from MongoDB`);
                 }
             }
 
-            console.log('\n========================================');
-            console.log('Items Sync Complete!');
-            console.log(`Created: ${created}`);
-            console.log(`Updated: ${updated}`);
-            console.log('========================================\n');
+            if (created > 0 || updated > 0) {
+                logger.info(`[ItemsSync] Sync Complete: ${created} created, ${updated} updated`);
+            } else {
+                logger.debug('[ItemsSync] Sync Complete: No changes');
+            }
 
             return {
                 success: true,
@@ -89,7 +90,7 @@ class ItemsSyncService {
                 updated
             };
         } catch (error) {
-            console.error('[ItemsSync] ❌ Sync failed:', error);
+            logger.error(`[ItemsSync] ❌ Sync failed: ${error.message}`);
             return {
                 success: false,
                 error: error.message

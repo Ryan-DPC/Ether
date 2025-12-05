@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const getCloudinaryCache = require('./cloudinaryCache.service');
 const SlugService = require('./slug.service');
+const logger = require('../utils/logger');
 
 class CloudinaryService {
     constructor() {
@@ -13,7 +14,10 @@ class CloudinaryService {
                 cloudinary_url: cloudinaryUrl,
             });
             this.enabled = true;
-            console.log('[Cloudinary] ✅ Cloudinary configured via CLOUDINARY_URL');
+            if (!CloudinaryService.initialized) {
+                logger.debug('[Cloudinary] ✅ Cloudinary configured via CLOUDINARY_URL');
+                CloudinaryService.initialized = true;
+            }
         } else {
             const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
             const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -26,10 +30,16 @@ class CloudinaryService {
                     api_secret: apiSecret,
                 });
                 this.enabled = true;
-                console.log('[Cloudinary] ✅ Cloudinary configured via variables');
+                if (!CloudinaryService.initialized) {
+                    logger.debug('[Cloudinary] ✅ Cloudinary configured via variables');
+                    CloudinaryService.initialized = true;
+                }
             } else {
                 this.enabled = false;
-                console.warn('[Cloudinary] ⚠️ Cloudinary not configured');
+                if (!CloudinaryService.initialized) {
+                    logger.warn('[Cloudinary] ⚠️ Cloudinary not configured');
+                    CloudinaryService.initialized = true;
+                }
             }
         }
     }
@@ -53,7 +63,7 @@ class CloudinaryService {
                 bytes: result.bytes,
             };
         } catch (error) {
-            console.error(`[Cloudinary] Error uploading ${filePath}:`, error);
+            logger.error(`[Cloudinary] Error uploading ${filePath}: ${error.message}`);
             throw error;
         }
     }
@@ -114,7 +124,7 @@ class CloudinaryService {
             const apiSecret = config.api_secret || process.env.CLOUDINARY_API_SECRET;
 
             if (!apiKey || !apiSecret) {
-                console.error('[Cloudinary] Missing API Key or Secret for signing');
+                logger.error('[Cloudinary] Missing API Key or Secret for signing');
                 return null;
             }
 
@@ -149,7 +159,7 @@ class CloudinaryService {
 
             return cloudinary.url(publicId, options);
         } catch (error) {
-            console.error('[Cloudinary] Error signing URL:', error);
+            logger.error(`[Cloudinary] Error signing URL: ${error.message}`);
             return null;
         }
     }
@@ -163,7 +173,7 @@ class CloudinaryService {
             });
             return result;
         } catch (error) {
-            console.error('[Cloudinary] Error getting resource details:', error.message);
+            logger.error(`[Cloudinary] Error getting resource details: ${error.message}`);
             return null;
         }
     }
@@ -214,9 +224,13 @@ class CloudinaryService {
                 await cache.setManifestsList(manifests);
             }
 
+            if (manifests.length === 0) {
+                logger.warn('[Cloudinary] ⚠️ No manifests found in "manifests/" folder. Ensure you have uploaded JSON files to this folder in Cloudinary.');
+            }
+
             return manifests;
         } catch (error) {
-            console.error('[Cloudinary] Error listing manifests:', error);
+            logger.error(`[Cloudinary] Error listing manifests: ${error.message}`);
             throw error;
         }
     }
@@ -257,7 +271,7 @@ class CloudinaryService {
 
             return manifest;
         } catch (error) {
-            console.error(`[Cloudinary] Error getting manifest ${folderName}:`, error);
+            logger.error(`[Cloudinary] Error getting manifest ${folderName}: ${error.message}`);
             throw error;
         }
     }
@@ -291,7 +305,7 @@ class CloudinaryService {
                 });
                 this.mongoGamesMap = gamesMap;
             } catch (mongoError) {
-                console.warn('[Cloudinary] ⚠️ Cannot fetch games from MongoDB:', mongoError.message);
+                logger.warn(`[Cloudinary] ⚠️ Cannot fetch games from MongoDB: ${mongoError.message}`);
                 this.mongoGamesMap = new Map();
             }
 
@@ -389,7 +403,7 @@ class CloudinaryService {
 
             return games;
         } catch (error) {
-            console.error('[Cloudinary] Error fetching all games:', error);
+            logger.error(`[Cloudinary] Error fetching all games: ${error.message}`);
             throw error;
         }
     }
@@ -400,3 +414,4 @@ class CloudinaryService {
 }
 
 module.exports = CloudinaryService;
+CloudinaryService.initialized = false;

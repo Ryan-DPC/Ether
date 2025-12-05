@@ -38,7 +38,7 @@ export const useLobbyStore = defineStore('lobby', {
         async createLobby(gameId: string, gameName: string) {
             this.loading = true
             try {
-                const response = await axios.post('/api/lobby/create', { gameId, gameName })
+                const response = await axios.post('/lobby/create', { gameId, gameName })
                 this.currentLobby = response.data.lobby
                 return response.data
             } catch (error: any) {
@@ -51,7 +51,7 @@ export const useLobbyStore = defineStore('lobby', {
         async joinLobby(lobbyId: string) {
             this.loading = true
             try {
-                const response = await axios.post('/api/lobby/join', { lobbyId })
+                const response = await axios.post('/lobby/join', { lobbyId })
                 this.currentLobby = response.data.lobby
                 return response.data
             } catch (error: any) {
@@ -66,7 +66,7 @@ export const useLobbyStore = defineStore('lobby', {
 
             this.loading = true
             try {
-                await axios.post('/api/lobby/leave', { lobbyId: this.currentLobby.id })
+                await axios.post('/lobby/leave', { lobbyId: this.currentLobby.id })
                 this.currentLobby = null
             } catch (error: any) {
                 throw new Error(error.response?.data?.message || 'Failed to leave lobby')
