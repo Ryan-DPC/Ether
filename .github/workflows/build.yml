@@ -39,5 +39,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Ether-Windows-Setup
-        path: frontend/dist/*-Setup-*.exe
+        path: frontend/release/*-Setup-*.exe
         if-no-files-found: error

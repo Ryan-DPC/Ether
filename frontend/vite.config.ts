@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(__dirname, '..'), '')
 
   return {
+    // Use relative paths for Electron (not absolute /assets/)
+    base: './',
     // Tell Vite to look for .env files in the parent directory
     envDir: path.resolve(__dirname, '..'),
     plugins: [vue()],

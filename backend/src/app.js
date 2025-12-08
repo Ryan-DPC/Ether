@@ -35,7 +35,6 @@ const gameCategoriesRoutes = require('./features/game-categories/game-categories
 const gameOwnershipRoutes = require('./features/game-ownership/game-ownership.routes');
 const installationRoutes = require('./features/installation/installation.routes');
 const stickArenaRoutes = require('./features/stick-arena/stick-arena.routes');
-const stickArenaRoutes = require('./features/stick-arena/stick-arena.routes');
 const wsBridgeRoutes = require('./features/ws-bridge/ws-bridge.routes');
 const financeRoutes = require('./features/finance/finance.routes');
 

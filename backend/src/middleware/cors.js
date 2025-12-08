@@ -1,7 +1,33 @@
 const cors = require('cors');
 
+// Allowed origins for CORS
+const allowedOrigins = [
+    'http://localhost:5173',  // Vite dev server
+    'http://localhost:3000',  // Alternative dev port
+    'file://',                // Electron app
+    process.env.FRONTEND_URL  // Production frontend
+].filter(Boolean);
+
 module.exports = cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Whitelist production frontend
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like Electron file:// or curl)
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        // Check if origin is in allowed list
+        if (allowedOrigins.some(allowed => origin.startsWith(allowed) || allowed === origin)) {
+            return callback(null, true);
+        }
+
+        // In development, allow all localhost origins
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+            return callback(null, true);
+        }
+
+        callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-Requested-With', 'Accept', 'Origin']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-Requested-With', 'Accept', 'Origin'],
+    credentials: true
 });

@@ -6,6 +6,16 @@ import { useUserStore } from '../stores/userStore'
 import { useNotificationStore } from '../stores/notificationStore'
 import router from '../router'
 
+// Get WebSocket URL based on environment
+const getSocketUrl = () => {
+    if (import.meta.env.VITE_WEBSOCKET_URL) {
+        return import.meta.env.VITE_WEBSOCKET_URL
+    }
+
+    // Use localhost for now (change to production URL when deployed)
+    return 'http://localhost:3002'
+}
+
 class SocketService {
     private socket: Socket | null = null
     public isConnected = false
@@ -19,8 +29,9 @@ class SocketService {
         }
 
         // Initialize socket connection to central WebSocket server
-        const socketUrl = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:3002';
-        console.log('🔌 Connecting to socket with token:', token.substring(0, 10) + '...')
+        const socketUrl = getSocketUrl();
+        console.log('🔌 Connecting to socket:', socketUrl);
+        console.log('🔌 Token:', token.substring(0, 10) + '...');
         this.socket = io(socketUrl, {
             auth: {
                 token: token

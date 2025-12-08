@@ -109,6 +109,16 @@ onUnmounted(() => {
   padding: 20px 40px;
   background: transparent;
   z-index: 50;
+  -webkit-app-region: drag; /* Makes the header draggable */
+}
+
+/* Make interactive elements non-draggable */
+.user-info,
+.profile-section,
+.icon-btn,
+.login-btn,
+.burger-menu {
+  -webkit-app-region: no-drag;
 }
 
 .search-bar {

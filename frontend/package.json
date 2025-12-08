@@ -10,13 +10,14 @@
     "appId": "com.ether.app",
     "productName": "Ether",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
       "package.json"
     ],
+    "asar": false,
     "win": {
       "target": [
         {
@@ -45,7 +46,6 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "axios": "^1.13.2",
     "extract-zip": "^2.0.1",
     "pinia": "^3.0.4",
     "socket.io-client": "^4.7.2",

@@ -37,9 +37,11 @@ const userStore = useUserStore()
   display: flex;
   height: 100vh;
   width: 100vw;
+  padding-top: 32px; /* Space for title bar overlay */
   background: transparent;
   overflow: hidden;
   position: relative;
+  box-sizing: border-box;
 }
 
 /* Global Glows */
