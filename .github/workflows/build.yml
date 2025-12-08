@@ -2,9 +2,9 @@ name: Build Electron App
 
 on:
   push:
-    branches: [ features/css_application, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ features/css_application, master ]
+    branches: [ main ]
 
 jobs:
   build:
