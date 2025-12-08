@@ -9,12 +9,25 @@
   "build": {
     "appId": "com.ether.app",
     "productName": "Ether",
+    "directories": {
+      "output": "dist"
+    },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
       "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },
