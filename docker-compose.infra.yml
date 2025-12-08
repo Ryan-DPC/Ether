@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   mongo:
     image: mongo:latest
@@ -17,20 +19,38 @@ services:
     networks:
       - ether-net
 
+  mysql:
+    image: mysql:8.0
+    container_name: ether_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ether_finance
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ether-net
+
   server:
-    build: ./server
+    build: ./backend
     container_name: ether_server
     ports:
-      - "${WS_PORT:-3002}:${WS_PORT:-3002}"
+      - "${WS_PORT:-3001}:${WS_PORT:-3001}"
     env_file:
-      - .env
+      - backend/.env
     environment:
       - MONGO_URI=mongodb://mongo:27017/ether
       - REDIS_URL=redis://redis:6379
-      - WS_PORT=3002
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=root
+      - MYSQL_DATABASE=ether_finance
+      - WS_PORT=3001
     depends_on:
       - mongo
       - redis
+      - mysql
     networks:
       - ether-net
 
@@ -41,3 +61,4 @@ networks:
 
 volumes:
   mongo_data:
+  mysql_data:

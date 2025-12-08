@@ -4,7 +4,25 @@ const app = require('./app');
 
 const PORT = process.env.PORT || 5000;
 
-const server = http.createServer(app);
+const fs = require('fs');
+const https = require('https');
+
+let server;
+if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
+    try {
+        const httpsOptions = {
+            key: fs.readFileSync(process.env.SSL_KEY_PATH),
+            cert: fs.readFileSync(process.env.SSL_CERT_PATH)
+        };
+        server = https.createServer(httpsOptions, app);
+        console.log('🔒 HTTPS Server enabled');
+    } catch (error) {
+        console.error('❌ Failed to load SSL certificates, falling back to HTTP:', error.message);
+        server = http.createServer(app);
+    }
+} else {
+    server = http.createServer(app);
+}
 
 // Connect to central WebSocket server (handled separately)
 const { connectToCentralServer } = require('./socket/socket.server');

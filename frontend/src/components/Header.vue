@@ -87,6 +87,7 @@ onUnmounted(() => {
               </div>
               <div class="burger-actions">
                   <RouterLink to="/profile" class="burger-link">Profil</RouterLink>
+                  <RouterLink to="/wallet" class="burger-link">Portefeuille</RouterLink>
                   <button @click="logout" class="burger-link danger">Déconnexion</button>
               </div>
             </div>

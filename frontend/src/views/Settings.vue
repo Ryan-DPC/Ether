@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
-import Logo from '@/assets/images/Logo.svg'
+import logoImage from '@/assets/images/Logo.svg'
 import SakuraBackground from '@/components/SakuraBackground.vue'
 
+const logo = logoImage
 const userStore = useUserStore()
 
 const activeTab = ref('Account')
@@ -96,7 +97,7 @@ const changePassword = async () => {
       <!-- Sidebar -->
       <div class="settings-sidebar">
         <div class="sidebar-header">
-          <img :src="Logo" alt="Ether Logo" class="sidebar-logo" />
+          <img :src="logo" alt="Ether Logo" class="sidebar-logo" />
         </div>
         <nav class="sidebar-nav">
           <div 

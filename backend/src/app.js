@@ -4,6 +4,12 @@ const connectDB = require('./config/db');
 const { connectRedis } = require('./config/redis');
 const CronService = require('./services/cron.service');
 const DefaultImageService = require('./services/defaultImage.service');
+const compression = require('compression');
+const { connectMySQL, sequelize } = require('./config/mysql');
+
+// Import MySQL Models to ensure they are registered
+require('./features/finance/transaction.model');
+require('./features/finance/invoice.model');
 
 // Middleware imports
 const helmetMiddleware = require('./middleware/helmet');
@@ -29,7 +35,9 @@ const gameCategoriesRoutes = require('./features/game-categories/game-categories
 const gameOwnershipRoutes = require('./features/game-ownership/game-ownership.routes');
 const installationRoutes = require('./features/installation/installation.routes');
 const stickArenaRoutes = require('./features/stick-arena/stick-arena.routes');
+const stickArenaRoutes = require('./features/stick-arena/stick-arena.routes');
 const wsBridgeRoutes = require('./features/ws-bridge/ws-bridge.routes');
+const financeRoutes = require('./features/finance/finance.routes');
 
 const app = express();
 
@@ -42,6 +50,16 @@ connectDB();
 // Connect to Redis
 connectRedis();
 
+// Connect to MySQL and Sync Models
+connectMySQL().then(async () => {
+    // Sync models - using alter: true to update tables if they exist but schema changed
+    // In production, migrations are preferred over sync({alter: true})
+    if (process.env.NODE_ENV !== 'production') {
+        await sequelize.sync({ alter: true });
+        console.log('✅ MySQL Models Synced');
+    }
+});
+
 // Ensure default game image exists on Cloudinary
 DefaultImageService.ensureDefaultImage();
 
@@ -51,6 +69,7 @@ cronService.start();
 
 // Middleware
 app.use(requestLogger);
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(helmetMiddleware);
@@ -81,6 +100,7 @@ app.use('/api/game-ownership', gameOwnershipRoutes);
 app.use('/api/installation', installationRoutes);
 app.use('/api/stick-arena', stickArenaRoutes);
 app.use('/api/ws-bridge', wsBridgeRoutes);
+app.use('/api/finance', financeRoutes);
 
 // Explicitly handle /socket.io/ to prevent HTML 404s if frontend connects here by mistake
 app.use('/socket.io/', (req, res) => {

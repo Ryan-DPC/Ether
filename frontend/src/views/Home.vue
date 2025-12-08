@@ -4,9 +4,9 @@ import { useGameStore } from '../stores/gameStore'
 import { useRouter } from 'vue-router'
 // import defaultGameImg from '@/assets/images/default-game.svg'
 const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
-import heroBg from '@/assets/images/hero-bg.svg'
-import heroBg2 from '@/assets/images/hero-bg-2.svg'
-import heroBg3 from '@/assets/images/hero-bg-3.svg'
+import heroBg from '@/assets/images/hero-bg.png'
+import heroBg2 from '@/assets/images/hero-bg-2.png'
+import heroBg3 from '@/assets/images/hero-bg-3.png'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -281,7 +281,7 @@ const categories = [
 
 .hero-bg {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  object-fit: cover;
+  object-fit: fill;
   object-position: center;
 }
 

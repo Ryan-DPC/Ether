@@ -121,6 +121,12 @@ const router = createRouter({
                     name: 'settings',
                     component: () => import('../views/Settings.vue'),
                     meta: { requiresAuth: true }
+                },
+                {
+                    path: 'wallet',
+                    name: 'wallet',
+                    component: () => import('../views/Wallet.vue'),
+                    meta: { requiresAuth: true }
                 }
             ]
         }
