@@ -6,6 +6,7 @@ const verifyToken = require('../../middleware/auth');
 router.get('/all', GamesController.getAllGames);
 router.post('/add', verifyToken, GamesController.addGame); // Protected
 router.post('/update', verifyToken, GamesController.updateGame); // Protected - For GitHub Actions
+router.post('/:id/install', GamesController.installGame);
 router.get('/details/:id', GamesController.getGameDetails);
 router.get('/:id/manifest', GamesController.getManifest);
 router.get('/:id/manifest-url', GamesController.getManifestUrl);

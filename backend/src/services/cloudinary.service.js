@@ -178,12 +178,17 @@ class CloudinaryService {
         }
     }
 
-    async listManifests(clearCache = false) {
+    /**
+     * List all available games by finding metadata.json files in games/ folder
+     * @param {boolean} clearCache 
+     * @returns {Promise<Array>} List of game metadata objects
+     */
+    async listGamesMetadata(clearCache = false) {
         if (!this.enabled) throw new Error('Cloudinary not configured');
 
         const cache = getCloudinaryCache();
         if (!clearCache && cache.isEnabled()) {
-            const cached = await cache.getManifestsList();
+            const cached = await cache.getManifestsList(); // We reuse the "ManifestsList" cache key concept but for metadata
             if (cached) return cached;
         }
 
@@ -192,86 +197,97 @@ class CloudinaryService {
         }
 
         try {
-            const result = await cloudinary.api.resources({
-                type: 'upload',
-                resource_type: 'raw',
-                prefix: 'manifests/',
-                max_results: 500,
-            });
+            // List all raw files in games folder
+            // We search for "metadata.json" specifically is logically better but Cloudinary API 
+            // is prefix-based. We'll list resources in 'games/' and filter in JS.
+            // Alternatively, we can use search API if available (Tier dependent), 
+            // but sticking to resources listing is safer for standard tiers.
 
-            const manifests = result.resources.map(resource => {
-                let folderName = resource.public_id;
-                while (folderName.startsWith('manifests/')) {
-                    folderName = folderName.substring('manifests/'.length);
-                }
-                if (folderName.endsWith('.json')) {
-                    folderName = folderName.substring(0, folderName.length - '.json'.length);
-                }
-                folderName = folderName.replace(/\/$/, '');
+            // To optimize, we list resources with prefix 'games/' and type 'raw'
+            let allResources = [];
+            let nextCursor = null;
 
-                return {
-                    folderName,
-                    publicId: resource.public_id,
-                    url: resource.secure_url,
-                    version: resource.version,
-                    createdAt: resource.created_at,
-                    updatedAt: resource.updated_at,
-                    bytes: resource.bytes,
-                };
-            });
+            do {
+                const result = await cloudinary.api.resources({
+                    type: 'upload',
+                    resource_type: 'raw',
+                    prefix: 'games/',
+                    max_results: 500,
+                    next_cursor: nextCursor
+                });
+
+                allResources = allResources.concat(result.resources);
+                nextCursor = result.next_cursor;
+            } while (nextCursor);
+
+            // Filter for files ending in /metadata.json
+            // Expected format: games/{folderName}/metadata.json
+            const metadataFiles = allResources.filter(r => r.public_id.endsWith('/metadata.json'));
+
+            if (metadataFiles.length === 0) {
+                logger.warn('[Cloudinary] ⚠️ No metadata.json files found in "games/" folder.');
+            }
+
+            // Fetch content for each metadata file (in parallel)
+            const gamesMetadata = await Promise.all(metadataFiles.map(async (resource) => {
+                try {
+                    // Extract folder name: games/chess/metadata.json -> chess
+                    const parts = resource.public_id.split('/');
+                    if (parts.length < 3) return null; // unexpected structure
+                    const folderName = parts[parts.length - 2];
+
+                    const url = resource.secure_url;
+
+                    // Fetch the JSON content
+                    const response = await fetch(url);
+                    if (!response.ok) return null;
+                    const metadata = await response.json();
+
+                    return {
+                        id: folderName, // Use folder name as ID
+                        folderName: folderName,
+                        ...metadata, // Spread metadata (name, description, tags, github_url, etc)
+                        metadataUrl: url,
+                        updatedAt: resource.updated_at
+                    };
+                } catch (err) {
+                    logger.error(`[Cloudinary] Error fetching metadata for ${resource.public_id}: ${err.message}`);
+                    return null;
+                }
+            }));
+
+            // Filter out nulls
+            const validGames = gamesMetadata.filter(g => g !== null);
 
             if (cache.isEnabled()) {
-                await cache.setManifestsList(manifests);
+                await cache.setManifestsList(validGames); // Reuse cache key
             }
 
-            if (manifests.length === 0) {
-                logger.warn('[Cloudinary] ⚠️ No manifests found in "manifests/" folder. Ensure you have uploaded JSON files to this folder in Cloudinary.');
-            }
-
-            return manifests;
+            return validGames;
         } catch (error) {
-            logger.error(`[Cloudinary] Error listing manifests: ${error.message}`);
+            logger.error(`[Cloudinary] Error listing games metadata: ${error.message}`);
             throw error;
         }
     }
 
-    async getManifest(folderName) {
+    /**
+     * Get metadata for a specific game
+     * @param {string} folderName 
+     */
+    async getGameMetadata(folderName) {
         if (!this.enabled) throw new Error('Cloudinary not configured');
 
-        const cache = getCloudinaryCache();
-        if (cache.isEnabled()) {
-            const cached = await cache.getManifest(folderName);
-            if (cached) return cached;
-        }
-
+        // Check cache via list first if possible, or fetch directly
         try {
-            let manifestUrl = null;
-            try {
-                const manifestsList = await this.listManifests();
-                const found = manifestsList.find(m => m.folderName === folderName);
-                if (found) manifestUrl = found.url;
-            } catch (listError) {
-                // Ignore
-            }
+            const publicId = `games/${folderName}/metadata.json`;
+            const url = this.getPublicUrl(publicId, 'raw');
 
-            if (!manifestUrl) {
-                const publicId = `manifests/${folderName}`;
-                manifestUrl = this.getPublicUrl(publicId, 'raw');
-                if (!manifestUrl) throw new Error('Cannot construct manifest URL');
-            }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Metadata not found: ${response.status}`);
 
-            const response = await fetch(manifestUrl);
-            if (!response.ok) throw new Error(`Manifest not found: ${response.status}`);
-
-            const manifest = await response.json();
-
-            if (cache.isEnabled()) {
-                await cache.setManifest(folderName, manifest);
-            }
-
-            return manifest;
+            return await response.json();
         } catch (error) {
-            logger.error(`[Cloudinary] Error getting manifest ${folderName}: ${error.message}`);
+            logger.error(`[Cloudinary] Error getting metadata for ${folderName}: ${error.message}`);
             throw error;
         }
     }
@@ -279,127 +295,43 @@ class CloudinaryService {
     async getAllGames(clearCache = false) {
         if (!this.enabled) throw new Error('Cloudinary not configured');
 
-        const cache = getCloudinaryCache();
-        if (!clearCache && cache.isEnabled()) {
-            const cachedGames = await cache.getGamesList();
-            if (cachedGames && Array.isArray(cachedGames) && cachedGames.length > 0) {
-                return cachedGames;
-            }
-        }
-
-        if (clearCache && cache.isEnabled()) {
-            await cache.clearAll();
-        }
-
+        // We delegate caching to listGamesMetadata
         try {
+            const gamesMetadata = await this.listGamesMetadata(clearCache);
+
+            // Fetch prices from SlugService (optional, depends if we still use slugs for prices)
             const slugService = new SlugService();
             const slugPrices = await slugService.getAllPrices();
-
-            let mongoGames = [];
-            try {
-                const Games = require('../features/games/games.model');
-                mongoGames = await Games.getAllGames();
-                const gamesMap = new Map();
-                mongoGames.forEach(game => {
-                    gamesMap.set(game.folder_name, game);
-                });
-                this.mongoGamesMap = gamesMap;
-            } catch (mongoError) {
-                logger.warn(`[Cloudinary] ⚠️ Cannot fetch games from MongoDB: ${mongoError.message}`);
-                this.mongoGamesMap = new Map();
-            }
-
             this.slugPrices = slugPrices;
 
-            const manifestsList = await this.listManifests(clearCache);
+            // Map to unified Game object structure
+            const games = gamesMetadata.map(meta => {
+                // Construct image URLs
+                // Standard convention: games/{folderName}/cover.png
+                // Or use what's in metadata if specified
+                const coverUrl = this.getPublicUrl(`games/${meta.folderName}/cover.png`, 'image');
 
-            const games = await Promise.all(
-                manifestsList.map(async (manifestInfo) => {
-                    try {
-                        const syncManifest = await fetch(manifestInfo.url).then(r => r.ok ? r.json() : null).catch(() => null);
-
-                        let gameManifest = null;
-                        const gameManifestUrl = this.getPublicUrl(`games/${manifestInfo.folderName}/manifest.json`, 'raw');
-                        if (gameManifestUrl) {
-                            try {
-                                const gameManifestResponse = await fetch(gameManifestUrl);
-                                if (gameManifestResponse.ok) {
-                                    gameManifest = await gameManifestResponse.json();
-                                }
-                            } catch (err) { }
-                        }
-
-                        if (!gameManifest) {
-                            try {
-                                let cleanFolderName = manifestInfo.folderName.replace(/^manifests\//, '').replace(/\/$/, '');
-                                const gamesPath = process.env.GAMES_PATH || path.join(__dirname, '../../../../games');
-                                const manifestPath = path.join(gamesPath, cleanFolderName, 'manifest.json');
-                                const manifestContent = await fs.readFile(manifestPath, 'utf8');
-                                gameManifest = JSON.parse(manifestContent);
-                            } catch (err) { }
-                        }
-
-                        if (cache.isEnabled() && syncManifest) {
-                            await cache.setManifest(manifestInfo.folderName, syncManifest);
-                        }
-
-                        const mongoGame = this.mongoGamesMap?.get(manifestInfo.folderName);
-
-                        return {
-                            id: mongoGame?.id || `cloudinary_${manifestInfo.folderName}`,
-                            game_name: gameManifest?.gameName || mongoGame?.game_name || manifestInfo.folderName,
-                            folder_name: manifestInfo.folderName,
-                            description: gameManifest?.description || mongoGame?.description || '',
-                            image_url: mongoGame?.image_url || gameManifest?.imageUrl || gameManifest?.bannerUrl || '/assets/images/default-game.png',
-                            status: mongoGame?.status || 'disponible',
-                            genre: gameManifest?.genre || mongoGame?.genre || 'Undefined',
-                            max_players: gameManifest?.maxPlayers || mongoGame?.max_players || 1,
-                            is_multiplayer: gameManifest?.isMultiplayer || mongoGame?.is_multiplayer || false,
-                            developer: gameManifest?.developer || mongoGame?.developer || 'Inconnu',
-                            price: this.slugPrices?.[manifestInfo.folderName] !== undefined
-                                ? this.slugPrices[manifestInfo.folderName]
-                                : (mongoGame?.price !== undefined && mongoGame.price > 0
-                                    ? mongoGame.price
-                                    : (gameManifest?.price !== undefined ? gameManifest.price : 0)),
-                            version: gameManifest?.version || syncManifest?.version || manifestInfo.version,
-                            manifestUrl: manifestInfo.url,
-                            manifestVersion: syncManifest?.version || manifestInfo.version,
-                            manifestUpdatedAt: manifestInfo.updatedAt,
-                            created_at: mongoGame?.created_at || manifestInfo.createdAt || new Date(),
-                            updated_at: mongoGame?.updated_at || manifestInfo.updatedAt || new Date(),
-                            manifest: syncManifest,
-                            gameManifest: gameManifest,
-                        };
-                    } catch (error) {
-                        const mongoGame = this.mongoGamesMap?.get(manifestInfo.folderName);
-                        return {
-                            id: mongoGame?.id || `cloudinary_${manifestInfo.folderName}`,
-                            game_name: mongoGame?.game_name || manifestInfo.folderName,
-                            folder_name: manifestInfo.folderName,
-                            description: mongoGame?.description || '',
-                            image_url: mongoGame?.image_url || '/assets/images/default-game.png',
-                            status: mongoGame?.status || 'disponible',
-                            genre: mongoGame?.genre || 'Undefined',
-                            max_players: mongoGame?.max_players || 1,
-                            is_multiplayer: mongoGame?.is_multiplayer || false,
-                            developer: mongoGame?.developer || 'Inconnu',
-                            price: this.slugPrices?.[manifestInfo.folderName] !== undefined
-                                ? this.slugPrices[manifestInfo.folderName]
-                                : (mongoGame?.price !== undefined ? mongoGame.price : 0),
-                            version: manifestInfo.version,
-                            manifestUrl: manifestInfo.url,
-                            manifestVersion: manifestInfo.version,
-                            manifestUpdatedAt: manifestInfo.updatedAt,
-                            created_at: mongoGame?.created_at || manifestInfo.createdAt || new Date(),
-                            updated_at: mongoGame?.updated_at || manifestInfo.updatedAt || new Date(),
-                        };
-                    }
-                })
-            );
-
-            if (cache.isEnabled()) {
-                await cache.setGamesList(games, 3600);
-            }
+                return {
+                    id: meta.folderName, // e.g. "ether-chess"
+                    game_name: meta.name || meta.folderName,
+                    folder_name: meta.folderName,
+                    description: meta.description || '',
+                    image_url: coverUrl, // fallback handled by frontend or use default
+                    status: 'disponible', // Default status
+                    genre: meta.genre || (meta.tags && meta.tags[0]) || 'Undefined',
+                    max_players: 1, // Metadata might need this field if relevant
+                    is_multiplayer: meta.tags ? meta.tags.includes('multiplayer') : false,
+                    developer: meta.developer || 'Inconnu',
+                    price: this.slugPrices?.[meta.folderName] !== undefined
+                        ? this.slugPrices[meta.folderName]
+                        : (meta.price || 0),
+                    version: 'latest', // Managed by GitHub
+                    github_url: meta.github_url,
+                    tags: meta.tags || [],
+                    created_at: meta.updatedAt,
+                    updated_at: meta.updatedAt,
+                };
+            });
 
             return games;
         } catch (error) {
