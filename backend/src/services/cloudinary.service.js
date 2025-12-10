@@ -307,9 +307,10 @@ class CloudinaryService {
             // Map to unified Game object structure
             const games = gamesMetadata.map(meta => {
                 // Construct image URLs
-                // Standard convention: games/{folderName}/cover.png
-                // Or use what's in metadata if specified
-                const coverUrl = this.getPublicUrl(`games/${meta.folderName}/cover.png`, 'image');
+                // Prioritize explicit image_url in metadata
+                // Fallback to standard convention: games/{folderName}/cover.jpg
+                const fallbackUrl = this.getPublicUrl(`games/${meta.folderName}/cover.jpg`, 'image');
+                const coverUrl = meta.image_url || fallbackUrl;
 
                 return {
                     id: meta.folderName, // e.g. "ether-chess"
@@ -319,13 +320,13 @@ class CloudinaryService {
                     image_url: coverUrl, // fallback handled by frontend or use default
                     status: 'disponible', // Default status
                     genre: meta.genre || (meta.tags && meta.tags[0]) || 'Undefined',
-                    max_players: 1, // Metadata might need this field if relevant
-                    is_multiplayer: meta.tags ? meta.tags.includes('multiplayer') : false,
+                    max_players: meta.max_players || 1, // Metadata might need this field if relevant
+                    is_multiplayer: meta.is_multiplayer !== undefined ? meta.is_multiplayer : (meta.tags ? meta.tags.includes('multiplayer') : false),
                     developer: meta.developer || 'Inconnu',
                     price: this.slugPrices?.[meta.folderName] !== undefined
                         ? this.slugPrices[meta.folderName]
                         : (meta.price || 0),
-                    version: 'latest', // Managed by GitHub
+                    version: meta.version || 'latest', // Managed by GitHub but prefer metadata version
                     github_url: meta.github_url,
                     tags: meta.tags || [],
                     created_at: meta.updatedAt,

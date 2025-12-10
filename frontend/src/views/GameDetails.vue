@@ -50,7 +50,7 @@ onMounted(async () => {
                     description: rawGame.description,
                     developer: rawGame.developer,
                     price: rawGame.price,
-                    version: rawGame.version || rawGame.manifestVersion,
+                    version: rawGame.latestVersion || rawGame.manifestVersion,
                     genre: rawGame.genre,
                     enabled: rawGame.status === 'disponible' || rawGame.enabled
                 }
@@ -69,7 +69,7 @@ onMounted(async () => {
                         slug: rawGame.slug || rawGame.folder_name,
                         isMultiplayer: rawGame.isMultiplayer || rawGame.is_multiplayer,
                         maxPlayers: rawGame.maxPlayers || rawGame.max_players,
-                        version: rawGame.version || rawGame.manifestVersion
+                        version: rawGame.latestVersion || rawGame.manifestVersion
                     }
                 } else {
                     throw new Error('Game not found in dev-games')
@@ -268,7 +268,7 @@ const purchaseGame = async () => {
                 
                 <div class="header-overlay">
                     <div class="header-content">
-                        <span v-if="game.version" class="dev-badge">DEV v{{ game.version }}</span>
+                        <span v-if="game.latestVersion" class="dev-badge">DEV v{{ game.latestVersion }}</span>
                         <h1>{{ game.gameName }}</h1>
                         <p class="developer">Développeur: {{ game.developer || 'Inconnu' }}</p>
                     </div>
@@ -284,7 +284,7 @@ const purchaseGame = async () => {
                     <div class="features">
                         <div class="feature">
                             <span class="label">Version:</span>
-                            <span class="value">{{ game.version || 'N/A' }}</span>
+                            <span class="value">{{ game.latestVersion || 'N/A' }}</span>
                         </div>
                         <div class="feature" v-if="game.maxPlayers">
                             <span class="label">Joueurs:</span>

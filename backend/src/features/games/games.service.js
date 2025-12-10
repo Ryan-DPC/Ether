@@ -52,6 +52,7 @@ class GamesService {
         // Merge info
         const enhancedGame = {
             ...game,
+            version: latestRelease ? latestRelease.version : game.version, // Ensure main version field reflects latest
             latestVersion: latestRelease ? latestRelease.version : game.version,
             downloadUrl: latestRelease ? latestRelease.downloadUrl : game.downloadUrl,
             releaseNotes: latestRelease ? latestRelease.changelog : '',
@@ -222,6 +223,126 @@ class GamesService {
         // This might be used by the Admin webhook still? 
         // Or we can deprecate it. Leaving as wrapper to DB.
         return Games.updateGameVersion(gameId, version, manifestUrl, zipUrl);
+    }
+
+    /**
+     * Sync game metadata and assets from GitHub to Cloudinary
+     * Used to restore a game if Cloudinary is empty but GitHub info exists.
+     * @param {string} gameId 
+     */
+    static async syncFromGitHub(gameId) {
+        console.log(`[Games] Syncing ${gameId} from GitHub...`);
+        const cloudinaryService = new CloudinaryService();
+        if (!cloudinaryService.isEnabled()) {
+            throw new Error('Cloudinary is not enabled. Cannot sync.');
+        }
+
+        // 1. Get DB info to find GitHub URL
+        // We bypass getGameByName to avoid recursion if it tries to check Cloudinary first
+        // We strictly want the DB record here.
+        const dbGame = await Games.getGameByName(gameId);
+        if (!dbGame || !dbGame.github_url) {
+            throw new Error(`Game ${gameId} not found in DB or missing GitHub URL`);
+        }
+
+        const ghService = new GitHubService();
+        const repoInfo = ghService.parseUrl(dbGame.github_url);
+        if (!repoInfo) throw new Error('Invalid GitHub URL');
+
+        // 2. Fetch Source Metadata
+        console.log(`[Games] Fetching metadata.json from ${repoInfo.owner}/${repoInfo.repo}...`);
+        const rawMeta = await ghService.getRawFile(repoInfo.owner, repoInfo.repo, 'metadata.json');
+        if (!rawMeta) {
+            throw new Error('metadata.json not found in GitHub repository');
+        }
+        const metadata = JSON.parse(rawMeta.toString());
+
+        // 3. Fetch Cover Image (Try jpg then png)
+        console.log(`[Games] Fetching cover image...`);
+        let coverBuffer = await ghService.getRawFile(repoInfo.owner, repoInfo.repo, 'cover.jpg');
+        let format = 'jpg';
+
+        if (!coverBuffer) {
+            console.log('cover.jpg not found, trying cover.png...');
+            coverBuffer = await ghService.getRawFile(repoInfo.owner, repoInfo.repo, 'cover.png');
+            format = 'png';
+        }
+
+        let coverUrl = null;
+        if (coverBuffer) {
+            console.log(`[Games] Uploading cover.${format} to Cloudinary...`);
+            const coverResult = await cloudinaryService.uploadBuffer(coverBuffer, `games/${gameId}/cover`, {
+                folder: `games/${gameId}`, // This might nest if public_id also has path?
+                // Wait, in previous steps we saw `games/ether-chess/cover` public_id plus `folder: games/ether-chess` = `games/ether-chess/games/ether-chess/cover`
+                // WE MUST FIX THIS. 
+                // Best practice: just use public_id with full path and NO folder option, or folder and valid filename.
+                // CloudinaryService.uploadBuffer uses: ...options
+                // Let's use specific public_id and NO folder in options to be safe.
+                public_id: `games/${gameId}/cover`,
+                resource_type: 'image',
+                format: format
+            });
+            coverUrl = coverResult.url;
+            console.log(`[Games] Cover uploaded: ${coverUrl}`);
+        } else {
+            console.warn('[Games] No cover image found on GitHub.');
+        }
+
+        // 4. Inject Cloudinary URL into Metadata
+        if (coverUrl) {
+            metadata.image_url = coverUrl;
+        }
+
+        // 5. Upload Metadata to Cloudinary
+        console.log(`[Games] Uploading metadata.json to Cloudinary...`);
+        const metaBuffer = Buffer.from(JSON.stringify(metadata, null, 2));
+        const metaResult = await cloudinaryService.uploadBuffer(metaBuffer, `games/${gameId}/metadata.json`, {
+            public_id: `games/${gameId}/metadata.json`,
+            resource_type: 'raw',
+            format: 'json'
+        });
+
+        console.log(`[Games] Sync Complete. Metadata: ${metaResult.url}`);
+
+        // 6. Update MongoDB with the fresh metadata
+        // This ensures the backend DB reflects the source of truth from GitHub/Cloudinary
+        // Fields to sync: genre, version, developer, description, image_url, etc.
+        try {
+            console.log('[Games] Updating MongoDB record...');
+            await Games.updateManifest(gameId, null, metadata.version || '0.0.0'); // Update manifest version
+
+            // We need a more generic update method or use updateOne directly on model
+            // For now, let's use the Games.updateGameVersion approach or just direct DB update
+            // Since we are inside GamesService, we can access existing methods or create a new one.
+            // Let's rely on the Model directly for this internal sync operation to be flexible.
+            const updates = {
+                genre: metadata.genre || 'Undefined',
+                version: metadata.version || '0.0.0', // This persists the version!
+                status: 'disponible', // If we have metadata, it's available
+                developer: metadata.developer || dbGame.developer,
+                description: metadata.description || dbGame.description,
+                image_url: metadata.image_url || dbGame.image_url,
+                game_name: metadata.name || dbGame.game_name,
+                entryPoint: metadata.entryPoint || dbGame.entryPoint,
+                min_players: metadata.min_players,
+                max_players: metadata.max_players,
+                is_multiplayer: metadata.is_multiplayer || false
+            };
+
+
+            // Use the new helper method on the Games class
+            await Games.updateGameMetadata(gameId, updates);
+            console.log('[Games] MongoDB record updated:', updates);
+
+        } catch (dbErr) {
+            console.error('[Games] Failed to update DB record:', dbErr);
+        }
+
+        return {
+            success: true,
+            metadataUrl: metaResult.url,
+            coverUrl: coverUrl
+        };
     }
 }
 

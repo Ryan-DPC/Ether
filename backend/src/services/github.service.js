@@ -64,6 +64,35 @@ class GitHubService {
             throw error;
         }
     }
+    /**
+     * Get raw file content from repository
+     * @param {string} owner
+     * @param {string} repo
+     * @param {string} filePath - File path in repo (e.g. "metadata.json")
+     * @param {string} ref - Branch or commit hash (default: "main")
+     * @returns {Promise<Buffer|null>}
+     */
+    async getRawFile(owner, repo, filePath, ref = 'main') {
+        try {
+            const url = `${this.baseUrl}/repos/${owner}/${repo}/contents/${filePath}?ref=${ref}`;
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/vnd.github.v3.raw'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) return null;
+                throw new Error(`GitHub API error: ${response.status}`);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            return Buffer.from(arrayBuffer);
+        } catch (error) {
+            console.warn(`[GitHub] Error fetching raw file ${filePath}:`, error.message);
+            return null;
+        }
+    }
 
     /**
      * Download a file from a URL to a local destination

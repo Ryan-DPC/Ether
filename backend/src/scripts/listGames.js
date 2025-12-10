@@ -1,26 +1,43 @@
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
 const mongoose = require('mongoose');
-const Game = require('../features/games/games.model');
+const GameModel = require('../features/games/games.model');
 
-const run = async () => {
+try {
+    const backendEnv = path.join(__dirname, '../../.env');
+    const rootEnv = path.join(__dirname, '../../../.env');
+
+    let dotenvPath = backendEnv;
+    if (!fs.existsSync(backendEnv)) {
+        if (fs.existsSync(rootEnv)) {
+            dotenvPath = rootEnv;
+        }
+    }
+
+    require('dotenv').config({ path: dotenvPath });
+} catch (e) {
+    console.error('Setup failed:', e.message);
+    process.exit(1);
+}
+
+async function listGames() {
     try {
-        await mongoose.connect(process.env.MONGO_URI || process.env.MONGO_URL);
-        console.log('Connected to DB');
+        await mongoose.connect(process.env.MONGODB_URI);
+        console.log('Connected to MongoDB');
 
-        // Access the model directly since the export is a class wrapper
-        const GameModel = mongoose.model('Game');
-        const games = await GameModel.find({});
+        const Game = mongoose.models.Game || mongoose.model('Game');
 
+        const games = await Game.find({});
         console.log(`Found ${games.length} games:`);
         games.forEach(g => {
-            console.log(`- ${g.game_name} (${g.folder_name}) [Status: ${g.status}]`);
+            console.log(`- [${g._id}] ${g.game_name} (${g.folder_name})`);
         });
 
-        process.exit(0);
-    } catch (e) {
-        console.error(e);
-        process.exit(1);
+    } catch (error) {
+        console.error('Error:', error);
+    } finally {
+        await mongoose.disconnect();
     }
-};
+}
 
-run();
+listGames();

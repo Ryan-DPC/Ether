@@ -1,42 +1,6 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-const BACKEND_URL = 'http://localhost:3001'
-
-const MOCK_GAMES = [
-    {
-        _id: 'mock-1',
-        game_name: 'Neon Racer',
-        genre: 'Racing',
-        price: 15,
-        image_url: `${BACKEND_URL}/public/games/neon-racer.svg`,
-        description: 'High speed racing in a neon city.'
-    },
-    {
-        _id: 'mock-2',
-        game_name: 'Cyber Legends',
-        genre: 'MOBA',
-        price: 0,
-        image_url: `${BACKEND_URL}/public/default-game.svg`,
-        description: '5v5 strategic combat.'
-    },
-    {
-        _id: 'mock-3',
-        game_name: 'Space Odyssey',
-        genre: 'Adventure',
-        price: 25,
-        image_url: `${BACKEND_URL}/public/default-game.svg`,
-        description: 'Explore the galaxy.'
-    },
-    {
-        _id: 'mock-4',
-        game_name: 'Pixel Brawler',
-        genre: 'Fighting',
-        price: 5,
-        image_url: `${BACKEND_URL}/public/default-game.svg`,
-        description: 'Retro style fighting game.'
-    }
-]
 
 export const useGameStore = defineStore('game', {
     state: () => ({
@@ -58,11 +22,9 @@ export const useGameStore = defineStore('game', {
                 // 1. Start with real games from backend
                 let featured = [...this.games]
 
-                // 2. If we don't have enough games (e.g. < 4), fill with MOCK_GAMES
-                if (featured.length < 4) {
-                    const needed = 4 - featured.length
-                    featured = [...featured, ...MOCK_GAMES.slice(0, needed)]
-                }
+                // 2. Mock games removed. Only showing real games.
+
+                this.featuredGames = featured.slice(0, 4)
 
                 this.featuredGames = featured.slice(0, 4)
             } catch (error) {

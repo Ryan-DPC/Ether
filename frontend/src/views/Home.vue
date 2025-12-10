@@ -235,16 +235,10 @@ const categories = [
           </div>
           
           <!-- Fallback if no games -->
+          <!-- Fallback if no games -->
           <template v-if="gameStore.featuredGames.length === 0">
-             <div class="game-card-neon" v-for="i in 4" :key="i">
-                <div class="card-image">
-                    <img :src="defaultGameImg" class="placeholder-img">
-                    <div class="card-overlay"><button class="btn-view">VIEW DETAILS</button></div>
-                </div>
-                <div class="card-info">
-                    <h3>Ether Game {{ i }}</h3>
-                    <div class="card-meta"><span class="genre">Indie</span> <span class="price free">FREE</span></div>
-                </div>
+             <div class="no-games-placeholder">
+                <p>No featured games available at the moment.</p>
              </div>
           </template>
         </div>

@@ -14,6 +14,8 @@ const gameSchema = new mongoose.Schema(
         price: { type: Number, default: 0 },
         manifestUrl: { type: String, default: null },
         zipUrl: { type: String, default: null },
+        github_url: { type: String, default: null },
+        version: { type: String, default: '0.0.0' },
         manifestVersion: { type: String, default: null },
         manifestUpdatedAt: { type: Date, default: null },
     },
@@ -100,6 +102,14 @@ class Games {
                 { _id: { $in: ids } }
             ]
         }).lean();
+    }
+
+    static async updateGameMetadata(folderName, updates) {
+        const result = await GameModel.updateOne(
+            { folder_name: folderName },
+            { $set: updates }
+        );
+        return result.modifiedCount > 0;
     }
 }
 
