@@ -7,14 +7,14 @@ const mongoose = require('mongoose');
 class ItemsService {
     // --- Items Management ---
 
-    static async getAllItems() {
+    static async getAllItems(filters = {}) {
         try {
             // We now rely on ItemsSyncService (Cron) to keep MongoDB up to date.
             // This ensures we always return MongoDB _ids, which are required for purchase/equip operations.
 
             // Fallback to MongoDB
-            console.log('[Items] Fetching items from MongoDB...');
-            const docs = await Items.find({}).lean();
+            console.log('[Items] Fetching items from MongoDB...', filters);
+            const docs = await Items.find(filters).lean();
             console.log(`[Items] Returning ${docs.length} items from MongoDB`);
             return docs.map((d) => ({ id: d._id.toString(), ...d }));
         } catch (error) {
@@ -36,21 +36,38 @@ class ItemsService {
         const items = result.resources.map((resource, index) => {
             // Extract item type from folder structure: items/profile_pictures/xxx.png
             const pathParts = resource.public_id.split('/');
-            const itemType = pathParts[1] || 'profile_picture';
+            const folderName = pathParts[1] || 'other';
             const filename = pathParts[pathParts.length - 1];
 
-            // Determine rarity based on... filename or index (placeholder logic)
+            // Map folder names to item types
+            let itemType = 'other';
+            if (folderName === 'banners') itemType = 'banner';
+            else if (folderName === 'avatar_frames') itemType = 'avatar_frame';
+            else if (folderName === 'profile_pictures') itemType = 'profile_picture';
+            else if (folderName === 'badges') itemType = 'badge';
+            else if (folderName === 'backgrounds') itemType = 'background';
+            else itemType = 'other';
+
+            // Determine rarity based on filename or index (placeholder)
             const rarities = ['common', 'rare', 'epic', 'legendary'];
             const rarity = rarities[index % 4];
 
+            let description = 'Un objet cosmétique';
+            if (itemType === 'banner') description = 'Bannière de profil';
+            if (itemType === 'avatar_frame') description = 'Cadre d\'avatar';
+            if (itemType === 'profile_picture') description = 'Photo de profil';
+            if (itemType === 'badge') description = 'Badge honorifique';
+            if (itemType === 'background') description = 'Arrière-plan de profil';
+
             return {
                 id: resource.asset_id || resource.public_id.replace(/\//g, '_'),
-                name: filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' '), // Remove extension and underscores
-                description: `Photo de profil ${rarity}`,
+                name: filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' '),
+                description: `${description} (${rarity})`,
                 image_url: resource.secure_url,
-                item_type: 'profile_picture',
+                item_type: itemType,
                 rarity: rarity,
-                price: rarity === 'common' ? 100 : rarity === 'rare' ? 250 : rarity === 'epic' ? 500 : 1000,
+                // Prices based on rarity and type
+                price: (rarity === 'common' ? 100 : rarity === 'rare' ? 250 : rarity === 'epic' ? 500 : 1000) * (itemType === 'banner' ? 2 : 1),
                 created_at: resource.created_at,
                 cloudinary_id: resource.public_id
             };
@@ -225,9 +242,9 @@ class ItemsService {
     // --- Business Logic ---
 
     // Récupérer tous les items (avec info de possession si userId fourni)
-    static async getAll(userId = null) {
+    static async getAll(userId = null, filters = {}) {
         try {
-            const items = await this.getAllItems();
+            const items = await this.getAllItems(filters);
 
             // Si un userId est fourni, ajouter les infos de possession
             if (userId) {
@@ -296,13 +313,23 @@ class ItemsService {
                             // Le publicId ne doit contenir que le nom du fichier, le folder sera ajouté automatiquement
                             const publicId = fileName;
 
+                            // Déterminer la transformation selon le type d'item
+                            let transformation = [];
+                            if (item.item_type === 'background') {
+                                // Pas de transformation, garder l'image originale
+                                transformation = [];
+                            } else if (item.item_type === 'banner') {
+                                transformation = [{ width: 1000, crop: 'scale' }];
+                            } else {
+                                // Avatar, frames, badges
+                                transformation = [{ width: 500, height: 500, crop: 'fill', gravity: 'auto' }];
+                            }
+
                             // Uploader dans le dossier inventaire de l'utilisateur
                             const uploadResult = await cloudinaryService.uploadBuffer(imageBuffer, publicId, {
                                 folder: `users/${userId}/inventaire`,
                                 resource_type: 'image',
-                                transformation: [
-                                    { width: 200, height: 200, crop: 'fill', gravity: 'auto' }
-                                ]
+                                transformation: transformation
                             });
 
                             userImageUrl = uploadResult.url;

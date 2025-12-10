@@ -7,7 +7,7 @@ const itemSchema = new mongoose.Schema(
         price: { type: Number, default: 0 },
         image_url: { type: String, default: '' },
         game_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Game', default: null, index: true }, // Jeu associé (optionnel)
-        item_type: { type: String, enum: ['badge', 'banner', 'profile_picture', 'avatar_frame', 'other'], default: 'other' }, // Type d'item cosmétique
+        item_type: { type: String, enum: ['badge', 'banner', 'profile_picture', 'avatar_frame', 'background', 'other'], default: 'other' }, // Type d'item cosmétique
         rarity: { type: String, enum: ['common', 'rare', 'epic', 'legendary'], default: 'common' }, // Rareté de l'item
         cloudinary_id: { type: String, default: null, index: true }, // ID Cloudinary pour sync
         created_at: { type: Date, default: Date.now },

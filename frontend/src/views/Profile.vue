@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
 import { useItemStore } from '../stores/itemStore'
+import { useLayoutStore } from '@/stores/layoutStore'
 import axios from 'axios'
 // import defaultGameImg from '@/assets/images/default-game.svg'
 const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
 
 const userStore = useUserStore()
 const itemStore = useItemStore()
+const layoutStore = useLayoutStore()
 
 const activeTab = ref('profile') // 'profile' or 'inventory'
 const typeFilter = ref('')
 const friends = ref<any[]>([])
 const recentGames = ref<any[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
-
+const profileLoaded = ref(false)
 
 
 const isOwnProfile = computed(() => true)
@@ -43,22 +45,50 @@ const handleFileUpload = async (event: Event) => {
   }
 }
 
-const badges = ref<any[]>([])
-
-onMounted(async () => {
-  await userStore.fetchProfile()
-  if (activeTab.value === 'inventory') await itemStore.fetchMyItems()
-  fetchFriends()
-  fetchRecentGames()
-  fetchBadges()
-})
-
-const fetchBadges = async () => {
-  if (itemStore.myItems.length === 0) await itemStore.fetchMyItems()
-  badges.value = itemStore.myItems
+const badges = computed(() => {
+  return itemStore.myItems
     .filter((i: any) => i.item?.item_type === 'badge' && i.is_equipped)
     .map((i: any) => i.item)
-}
+})
+
+const equippedBanner = computed(() => {
+  const equipped = itemStore.myItems.find((i: any) => i.item?.item_type === 'banner' && i.is_equipped)
+  return equipped?.item?.image_url || null
+})
+
+const equippedFrame = computed(() => {
+  const equipped = itemStore.myItems.find((i: any) => i.item?.item_type === 'avatar_frame' && i.is_equipped)
+  return equipped?.item?.image_url || null
+})
+
+const equippedBackground = computed(() => {
+  const equipped = itemStore.myItems.find((i: any) => i.item?.item_type === 'background' && i.is_equipped)
+  return equipped?.item?.image_url || null
+})
+
+const profilePicUrl = computed(() => {
+    return userStore.user?.profile_pic || defaultGameImg
+})
+
+// Sync background with layout store
+watch(equippedBackground, (newVal) => {
+  layoutStore.setBackground(newVal)
+}, { immediate: true })
+
+onUnmounted(() => {
+  layoutStore.setBackground(null)
+})
+
+onMounted(async () => {
+    // Parallel fetch for speed, but ensure both are done before showing complex elements
+  await Promise.all([
+      userStore.fetchProfile(),
+      itemStore.fetchMyItems(),
+      fetchFriends(),
+      fetchRecentGames()
+  ])
+  profileLoaded.value = true
+})
 
 const fetchFriends = async () => {
   try {
@@ -82,35 +112,40 @@ const filteredInventory = computed(() => {
 const equipItem = async (itemId: string) => {
   try {
     await itemStore.equipItem(itemId)
-    setTimeout(() => location.reload(), 500)
+    // No reload needed, store updates automatically via fetchMyItems inside action
   } catch (error: any) { alert(error.response?.data?.message || 'Erreur') }
 }
 
 const unequipItem = async (itemId: string) => {
   try {
     await itemStore.unequipItem(itemId)
-    setTimeout(() => location.reload(), 500)
   } catch (error: any) { alert(error.response?.data?.message || 'Erreur') }
 }
 </script>
 
 <template>
-  <div class="cyber-profile-page">
+  <div class="cyber-profile-page" :class="{ 'has-global-bg': !!equippedBackground }">
     <!-- Cherry Blossom Background Effect (CSS only for now) -->
-    <div class="cherry-blossoms"></div>
+    <div class="cherry-blossoms" v-if="!equippedBackground"></div>
 
     <div class="cyber-container">
       
       <!-- HEADER SECTION -->
-      <div class="cyber-header">
+      <div class="cyber-header" :style="equippedBanner ? { backgroundImage: `url(${equippedBanner})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}">
+        <div class="header-overlay" v-if="equippedBanner"></div>
         <div class="header-content">
           <div class="avatar-section">
-            <div class="cyber-avatar">
-              <img :src="userStore.user?.profile_pic || defaultGameImg">
-              <div class="avatar-glow"></div>
-              <div v-if="isOwnProfile" class="edit-overlay" @click="triggerFileInput">
-                <i class="fas fa-camera"></i>
-              </div>
+            <div class="cyber-avatar-wrapper">
+                 <!-- Use v-show or opacity transition to prevent jump/flicker -->
+                <div class="cyber-avatar" :class="{ 'has-frame': equippedFrame }" v-if="profileLoaded">
+                    <img :src="profilePicUrl" class="avatar-img">
+                    <img v-if="equippedFrame" :src="equippedFrame" class="avatar-frame-overlay">
+                    <div class="avatar-glow" v-if="!equippedFrame"></div>
+                    <div v-if="isOwnProfile" class="edit-overlay" @click="triggerFileInput">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                </div>
+                <div class="cyber-avatar skeleton" v-else></div>
             </div>
             <input type="file" ref="fileInput" class="hidden-input" accept="image/*" @change="handleFileUpload">
           </div>
@@ -288,14 +323,19 @@ const unequipItem = async (itemId: string) => {
              <div class="inventory-controls">
                 <select v-model="typeFilter" class="cyber-select">
                   <option value="">All Items</option>
-                  <option value="badge">Badges</option>
                   <option value="profile_picture">Avatars</option>
+                  <option value="badge">Badges</option>
+                  <option value="banner">Banners</option>
+                  <option value="background">Backgrounds</option>
+                  <option value="avatar_frame">Frames</option>
                 </select>
              </div>
              <div class="inv-grid">
                 <div v-for="item in filteredInventory" :key="item.item?.id" class="inv-card" :class="{equipped: item.is_equipped}">
-                   <img :src="item.item?.image_url">
-                   <span>{{ item.item?.name }}</span>
+                   <div class="inv-img-wrapper" :class="item.item?.rarity">
+                     <img :src="item.item?.image_url">
+                   </div>
+                   <span class="inv-name">{{ item.item?.name }}</span>
                    <button v-if="!item.is_equipped" @click="equipItem(item.item?.id)">Equip</button>
                    <button v-else @click="unequipItem(item.item?.id)" class="unequip">Unequip</button>
                 </div>
@@ -326,11 +366,19 @@ const unequipItem = async (itemId: string) => {
   background-image: 
     radial-gradient(circle at 10% 20%, rgba(211, 0, 197, 0.1) 0%, transparent 40%),
     radial-gradient(circle at 90% 80%, rgba(5, 217, 232, 0.1) 0%, transparent 40%);
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center;
   min-height: 100%;
   color: white;
   font-family: 'Rajdhani', sans-serif;
   padding: 20px;
   overflow-y: auto;
+  transition: background-image 0.5s ease;
+}
+
+.cyber-profile-page.has-global-bg {
+  background: transparent !important;
 }
 
 .cyber-container {
@@ -350,6 +398,14 @@ const unequipItem = async (itemId: string) => {
   position: relative;
   overflow: hidden;
   box-shadow: 0 0 20px rgba(211, 0, 197, 0.1);
+  transition: all 0.3s ease;
+}
+
+.header-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 11, 21, 0.5); /* Dim the banner for readability */
+  z-index: 1;
 }
 
 .header-content {
@@ -360,27 +416,73 @@ const unequipItem = async (itemId: string) => {
   z-index: 2;
 }
 
+.cyber-avatar-wrapper {
+  width: 140px; height: 140px; position: relative;
+}
+
+.cyber-avatar.skeleton {
+  width: 100%; height: 100%;
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.5; } 50% { opacity: 0.8; } 100% { opacity: 0.5; }
+}
+
 .cyber-avatar {
   width: 140px;
   height: 140px;
-  border: 4px solid var(--neon-cyan);
   border-radius: 12px; /* Square with rounded corners */
   box-shadow: 0 0 25px rgba(5, 217, 232, 0.4);
   position: relative;
   background: #000;
+  overflow: visible; /* Allow frame to go outside */
 }
 
-.cyber-avatar img {
+/* Frame Support */
+.cyber-avatar.has-frame {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.cyber-avatar .avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.cyber-avatar.has-frame .avatar-img {
+  border-radius: 50%; /* Often frames are round, or we can keep it square. Let's assume customizable frames might require specific radius. For now keep square-ish if framed? Or maybe force round if framed? Let's keep 8px unless framed. Actually typically frames overlap content. */
+  width: 86%; /* Shrink slightly to fit in frame? */
+  height: 86%;
+  margin: 7%;
+}
+
+.avatar-frame-overlay {
+  position: absolute;
+  top: -10%; left: -10%;
+  width: 120%; height: 120%;
+  z-index: 2;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+.cyber-avatar:not(.has-frame) {
+  border: 4px solid var(--neon-cyan);
 }
 
 .edit-overlay {
   position: absolute; inset: 0; background: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: 0.3s; cursor: pointer; font-size: 2rem;
+  z-index: 10;
+  border-radius: 8px;
 }
 .cyber-avatar:hover .edit-overlay { opacity: 1; }
 
@@ -628,7 +730,15 @@ const unequipItem = async (itemId: string) => {
   border: 1px solid transparent;
 }
 .inv-card.equipped { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(5, 217, 232, 0.2); }
-.inv-card img { width: 100%; height: 100px; object-fit: contain; margin-bottom: 10px; }
+.inv-img-wrapper {
+  height: 100px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
+  background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px solid transparent;
+}
+.inv-img-wrapper.legendary { border-color: goldenrod; background: radial-gradient(circle, rgba(218,165,32,0.2), transparent); }
+.inv-img-wrapper.epic { border-color: #d300c5; background: radial-gradient(circle, rgba(211,0,197,0.2), transparent); }
+
+.inv-card img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.inv-name { display: block; margin-bottom: 8px; font-size: 0.9rem; }
 .inv-card button {
   width: 100%; padding: 5px; margin-top: 5px; background: #333; border: none; color: white; cursor: pointer;
 }

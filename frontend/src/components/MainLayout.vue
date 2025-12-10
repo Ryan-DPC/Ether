@@ -5,15 +5,23 @@ import Sidebar from '@/components/Sidebar.vue'
 import FriendsPopup from '@/components/FriendsPopup.vue'
 import NotificationPopup from '@/components/NotificationPopup.vue'
 import { useUserStore } from '@/stores/userStore'
+import { useLayoutStore } from '@/stores/layoutStore'
 
 const userStore = useUserStore()
+const layoutStore = useLayoutStore()
 </script>
 
 <template>
   <div class="app-layout">
-    <!-- Global Ambient Background -->
-    <div class="bg-glow pink-glow"></div>
-    <div class="bg-glow cyan-glow"></div>
+    <!-- Dynamic App Background -->
+    <div 
+      class="app-background" 
+      :style="layoutStore.appBackground ? { backgroundImage: `url(${layoutStore.appBackground})` } : {}"
+    ></div>
+
+    <!-- Global Ambient Background (visible if no dynamic bg) -->
+    <div v-if="!layoutStore.appBackground" class="bg-glow pink-glow"></div>
+    <div v-if="!layoutStore.appBackground" class="bg-glow cyan-glow"></div>
 
     <Sidebar />
     
@@ -38,10 +46,20 @@ const userStore = useUserStore()
   height: 100vh;
   width: 100vw;
   padding-top: 32px; /* Space for title bar overlay */
-  background: transparent;
+  background: #0f0b15; /* Base dark background */
   overflow: hidden;
   position: relative;
   box-sizing: border-box;
+}
+
+.app-background {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-size: cover;
+  background-position: center center;
+  background-attachment: fixed;
+  z-index: 0;
+  transition: background-image 0.5s ease-in-out;
 }
 
 /* Global Glows */
@@ -63,8 +81,8 @@ const userStore = useUserStore()
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  z-index: 1; /* Ensure content is above glows */
-  background: transparent; /* Let glows show through */
+  z-index: 1; /* Ensure content is above bg */
+  background: transparent; /* Let bg show through */
 }
 
 .main-content {

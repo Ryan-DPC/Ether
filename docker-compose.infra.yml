@@ -36,7 +36,7 @@ services:
     build: ./backend
     container_name: ether_server
     ports:
-      - "${WS_PORT:-3001}:${WS_PORT:-3001}"
+      - "${WS_PORT:-3002}:${WS_PORT:-3002}"
     env_file:
       - backend/.env
     environment:
@@ -46,7 +46,7 @@ services:
       - MYSQL_USER=root
       - MYSQL_PASSWORD=root
       - MYSQL_DATABASE=ether_finance
-      - WS_PORT=3001
+      - WS_PORT=3002
     depends_on:
       - mongo
       - redis

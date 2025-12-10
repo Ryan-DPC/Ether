@@ -6,7 +6,13 @@ class ItemsController {
     static async getAll(req, res) {
         try {
             const userId = req.user?.id || null;
-            const items = await ItemsService.getAll(userId);
+            const { type, rarity } = req.query;
+            const filters = {};
+
+            if (type) filters.item_type = type;
+            if (rarity) filters.rarity = rarity;
+
+            const items = await ItemsService.getAll(userId, filters);
             res.status(200).json({ success: true, items });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
