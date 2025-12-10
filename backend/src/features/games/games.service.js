@@ -151,8 +151,71 @@ class GamesService {
 
     // Keep legacy methods if needed or stubs
     static async getManifest(id) {
-        // Just return metadata
-        return this.getGameByName(id);
+        // 1. Get Metadata (Cloudinary/DB) logic re-used from getGameByName
+        const game = await this.getGameByName(id);
+        if (!game) {
+            throw new Error('Game not found');
+        }
+
+        // 2. If no GitHub URL, return basic metadata (legacy compatibility)
+        if (!game.github_url) {
+            return {
+                gameName: game.game_name || game.name,
+                version: game.version || '1.0.0',
+                description: game.description,
+                platform: 'windows',
+                entryPoint: game.entryPoint || 'Game.exe',
+                downloadUrl: game.zipUrl || game.downloadUrl
+            };
+        }
+
+        // 3. Fetch Latest Release from GitHub
+        try {
+            const ghService = new GitHubService();
+            const repoInfo = ghService.parseUrl(game.github_url);
+
+            if (!repoInfo) {
+                console.warn(`[Manifest] Invalid GitHub URL for ${id}: ${game.github_url}`);
+                // Return what we have
+                return {
+                    gameName: game.game_name || game.name,
+                    version: game.version || '0.0.0',
+                    description: game.description,
+                    platform: 'windows',
+                    entryPoint: game.entryPoint || 'Game.exe',
+                    downloadUrl: null
+                };
+            }
+
+            const release = await ghService.getLatestRelease(repoInfo.owner, repoInfo.repo);
+
+            // 4. Construct Composite Manifest
+            // Prioritize GitHub Release data for version and downloadUrl
+            return {
+                gameName: game.game_name || game.name,
+                version: release.version, // Tag name from GitHub
+                description: game.description,
+                platform: 'windows', // Defaulting to windows for now
+                entryPoint: game.entryPoint || 'Game.exe', // From metadata or default
+                downloadUrl: release.downloadUrl, // Asset browser_download_url
+                zipUrl: release.downloadUrl, // Backward compatibility
+                releaseNotes: release.changelog,
+                publishedAt: release.publishedAt
+            };
+
+        } catch (error) {
+            console.error(`[Manifest] Failed to fetch GitHub release for ${id}:`, error.message);
+            // Fallback: return metadata values if available, otherwise error
+            return {
+                gameName: game.game_name || game.name,
+                version: game.version || '0.0.0',
+                description: game.description,
+                platform: 'windows',
+                entryPoint: game.entryPoint || 'Game.exe',
+                downloadUrl: game.zipUrl || null,
+                error: 'Failed to fetch latest release info'
+            };
+        }
     }
 
     static async updateGameVersion(gameId, version, manifestUrl, zipUrl) {

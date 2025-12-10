@@ -6,7 +6,9 @@ import axios from 'axios'
 import { getApiUrl } from '../utils/url';
 const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 import { statsService } from '../services/stats.service';
+import { useUserStore } from '@/stores/userStore';
 
+const userStore = useUserStore();
 const route = useRoute()
 const gameId = route.params.id as string
 const game = ref<any>(null)
@@ -236,6 +238,8 @@ const purchaseGame = async () => {
         if (response.data.success) {
             alert(`Jeu acheté avec succès ! Solde restant : ${response.data.remainingBalance} CHF`)
             userOwnsGame.value = true
+            // Refresh user tokens immediately
+            await userStore.fetchProfile()
         }
     } catch (err: any) {
         alert(err.response?.data?.message || 'Erreur lors de l\'achat')

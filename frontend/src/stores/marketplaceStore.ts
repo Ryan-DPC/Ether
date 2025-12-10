@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { socketService } from '../services/socket'
+import { useUserStore } from './userStore'
 
 export const useMarketplaceStore = defineStore('marketplace', {
     state: () => ({
@@ -63,6 +64,9 @@ export const useMarketplaceStore = defineStore('marketplace', {
                     socketService.off('transaction:success')
                     socketService.off('transaction:error')
                     this.fetchUsedGames() // Refresh list
+                    // Refresh user tokens/balance immediately
+                    const userStore = useUserStore()
+                    userStore.fetchProfile()
                     resolve(data)
                 }
 

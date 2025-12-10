@@ -4,11 +4,27 @@ import Header from '@/components/Header.vue'
 import Sidebar from '@/components/Sidebar.vue'
 import FriendsPopup from '@/components/FriendsPopup.vue'
 import NotificationPopup from '@/components/NotificationPopup.vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 
 const userStore = useUserStore()
 const layoutStore = useLayoutStore()
+
+let pollInterval;
+
+onMounted(() => {
+  // Poll user profile every 10 seconds to keep tokens/balance updated
+  pollInterval = setInterval(() => {
+    if (userStore.isAuthenticated) {
+      userStore.fetchProfile().catch(err => console.error('Background profile sync failed', err));
+    }
+  }, 10000);
+});
+
+onUnmounted(() => {
+  if (pollInterval) clearInterval(pollInterval);
+});
 </script>
 
 <template>
