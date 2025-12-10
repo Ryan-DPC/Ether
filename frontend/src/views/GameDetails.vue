@@ -3,7 +3,9 @@ import { ref, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import axios from 'axios'
 // import defaultGameImg from '@/assets/images/default-game.svg'
-const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
+import { getApiUrl } from '../utils/url';
+const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
+import { statsService } from '../services/stats.service';
 
 const route = useRoute()
 const gameId = route.params.id as string
@@ -214,6 +216,7 @@ const launchGame = async () => {
     if (!installPath) return
 
     try {
+        await statsService.startSession(game.value.slug);
         await window.electronAPI?.launchGame(installPath, game.value.slug)
     } catch (err: any) {
         alert(`Erreur de lancement: ${err.message}`)

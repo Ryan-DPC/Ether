@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useGameStore } from '../stores/gameStore'
 import { useRouter } from 'vue-router'
 // import defaultGameImg from '@/assets/images/default-game.svg'
-const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
+import { getApiUrl } from '../utils/url';
+const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 import heroBg from '@/assets/images/hero-bg.png'
 import heroBg2 from '@/assets/images/hero-bg-2.png'
 import heroBg3 from '@/assets/images/hero-bg-3.png'
@@ -12,6 +13,20 @@ const router = useRouter()
 const gameStore = useGameStore()
 const searchQuery = ref('')
 const activeCategory = ref('trending')
+
+// Filtered Search Results
+const searchResults = computed(() => {
+  if (!searchQuery.value || searchQuery.value.length < 2) return []
+  const query = searchQuery.value.toLowerCase()
+  return gameStore.games.filter((g: any) => 
+    g.game_name.toLowerCase().includes(query)
+  ).slice(0, 5) // Limit to 5 results
+})
+
+const selectGame = (gameId: string) => {
+  goToGameDetails(gameId)
+  searchQuery.value = '' // Clear search after selection
+}
 
 // Carousel State
 const currentSlide = ref(0)
@@ -154,7 +169,29 @@ const categories = [
           <div class="filter-bar">
             <div class="search-input">
               <i class="fas fa-search search-icon"></i>
-              <input v-model="searchQuery" type="text" placeholder="Search games...">
+              <input 
+                v-model="searchQuery" 
+                type="text" 
+                placeholder="Search games..."
+                @keyup.enter="searchResults.length > 0 && selectGame(searchResults[0]._id || searchResults[0].id)"
+              >
+              
+               <!-- Search Dropdown -->
+              <div v-if="searchResults.length > 0" class="search-dropdown">
+                <ul>
+                  <li 
+                    v-for="game in searchResults" 
+                    :key="game._id || game.id"
+                    @click="selectGame(game._id || game.id)"
+                  >
+                    <img :src="game.image_url || defaultGameImg" class="thumb">
+                    <div class="info">
+                        <span class="title">{{ game.game_name }}</span>
+                        <span class="price">{{ game.price > 0 ? game.price + ' CHF' : 'FREE' }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
             </div>
             
             <div class="categories-row">
@@ -435,6 +472,7 @@ const categories = [
   transition: all 0.3s;
   display: flex;
   align-items: center;
+  z-index: 100;
 }
 
 .search-input:focus-within {
@@ -458,6 +496,75 @@ const categories = [
   left: 16px; 
   color: #b0b9c3; 
   pointer-events: none;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background: rgba(20, 15, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0 0 12px 12px;
+  margin-top: 5px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  backdrop-filter: blur(10px);
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.search-dropdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.search-dropdown li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  transition: background 0.2s;
+}
+
+.search-dropdown li:last-child {
+  border-bottom: none;
+}
+
+.search-dropdown li:hover {
+  background: rgba(255, 126, 179, 0.1);
+}
+
+.search-dropdown .thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.search-dropdown .info {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-dropdown .title {
+  font-weight: bold;
+  font-size: 0.95rem;
+  color: white;
+  text-align: left;
+}
+
+.search-dropdown .price {
+  font-size: 0.8rem;
+  color: #ff7eb3;
+  text-align: left;
 }
 
 .categories-row { 

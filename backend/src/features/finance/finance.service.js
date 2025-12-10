@@ -1,4 +1,4 @@
-const { sequelize } = require('../../config/mysql');
+const { sequelize } = require('../../config/database');
 const Transaction = require('./transaction.model');
 const Invoice = require('./invoice.model');
 const Users = require('../users/user.model'); // MongoDB User Model to sync balance

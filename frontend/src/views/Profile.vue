@@ -2,10 +2,11 @@
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
 import { useItemStore } from '../stores/itemStore'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useLayoutStore } from '../stores/layoutStore'
 import axios from 'axios'
 // import defaultGameImg from '@/assets/images/default-game.svg'
-const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
+import { getApiUrl } from '../utils/url';
+const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 
 const userStore = useUserStore()
 const itemStore = useItemStore()
@@ -13,14 +14,38 @@ const layoutStore = useLayoutStore()
 
 const activeTab = ref('profile') // 'profile' or 'inventory'
 const typeFilter = ref('')
+const profileLoaded = ref(false)
+
+// Import Service & Components
+import StatsChart from '../components/StatsChart.vue';
+import { statsService } from '../services/stats.service';
+
+const globalStats = ref<any>(null);
 const friends = ref<any[]>([])
 const recentGames = ref<any[]>([])
-const fileInput = ref<HTMLInputElement | null>(null)
-const profileLoaded = ref(false)
+
+const fetchFriends = async () => {
+  try {
+    const response = await axios.get('/friends/list')
+    friends.value = response.data.friends || []
+  } catch (error) { console.error('Failed to fetch friends') }
+}
+
+const fetchRecentGames = async () => {
+  try {
+    const response = await axios.get('/users/recent-games')
+    recentGames.value = response.data.games || []
+  } catch (error) { console.error('Failed to fetch recent games') }
+}
+
+const fetchGlobalStats = async () => {
+    globalStats.value = await statsService.getGlobalStats();
+}
 
 
 const isOwnProfile = computed(() => true)
 
+const fileInput = ref<HTMLInputElement | null>(null)
 const triggerFileInput = () => fileInput.value?.click()
 
 const handleFileUpload = async (event: Event) => {
@@ -80,29 +105,16 @@ onUnmounted(() => {
 })
 
 onMounted(async () => {
-    // Parallel fetch for speed, but ensure both are done before showing complex elements
+    // Parallel fetch for speed
   await Promise.all([
       userStore.fetchProfile(),
       itemStore.fetchMyItems(),
       fetchFriends(),
-      fetchRecentGames()
+      fetchRecentGames(),
+      fetchGlobalStats()
   ])
   profileLoaded.value = true
 })
-
-const fetchFriends = async () => {
-  try {
-    const response = await axios.get('/friends/list')
-    friends.value = response.data.friends || []
-  } catch (error) { console.error('Failed to fetch friends') }
-}
-
-const fetchRecentGames = async () => {
-  try {
-    const response = await axios.get('/users/recent-games')
-    recentGames.value = response.data.games || []
-  } catch (error) { console.error('Failed to fetch recent games') }
-}
 
 const filteredInventory = computed(() => {
   if (!typeFilter.value) return itemStore.myItems
@@ -121,6 +133,8 @@ const unequipItem = async (itemId: string) => {
     await itemStore.unequipItem(itemId)
   } catch (error: any) { alert(error.response?.data?.message || 'Erreur') }
 }
+
+
 </script>
 
 <template>
@@ -194,6 +208,24 @@ const unequipItem = async (itemId: string) => {
                 <span>{{ userStore.user?.xp || 0 }} XP</span>
                 <span>{{ userStore.user?.xp || 0 }} / 100 XP</span>
               </div>
+            </div>
+          </div>
+
+          <!-- Gaming Stats & Activity -->
+          <div class="cyber-panel stats-panel" v-if="globalStats">
+            <div class="panel-header">
+              <h3>Gaming Statistics</h3>
+            </div>
+            <div class="stats-content">
+                <div class="stat-row">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Playtime</span>
+                        <span class="stat-value">{{ globalStats.totalHours }}h</span>
+                    </div>
+                </div>
+                <div class="chart-wrapper" v-if="globalStats.activityData">
+                    <StatsChart :activityData="globalStats.activityData" />
+                </div>
             </div>
           </div>
 
@@ -619,6 +651,21 @@ const unequipItem = async (itemId: string) => {
   display: flex; justify-content: space-between;
   font-size: 0.9rem; color: var(--text-dim);
 }
+
+/* STATS PANEL */
+.stats-content { padding: 20px; }
+.stat-row { display: flex; gap: 20px; margin-bottom: 20px; }
+.stat-item {
+    background: rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.05);
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center;
+}
+.stat-label { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 5px; }
+.stat-value { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; color: var(--neon-cyan); }
+.chart-wrapper { height: 250px; }
 
 /* FAVORITES */
 .favorites-grid {

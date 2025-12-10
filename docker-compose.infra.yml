@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mongo:
     image: mongo:latest
@@ -19,16 +17,17 @@ services:
     networks:
       - ether-net
 
-  mysql:
-    image: mysql:8.0
-    container_name: ether_mysql
+  postgres:
+    image: postgres:16
+    container_name: ether_postgres
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: ether_finance
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ether_finance}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - ether-net
 
@@ -38,19 +37,19 @@ services:
     ports:
       - "${WS_PORT:-3002}:${WS_PORT:-3002}"
     env_file:
-      - backend/.env
+      - .env
     environment:
       - MONGO_URI=mongodb://mongo:27017/ether
       - REDIS_URL=redis://redis:6379
-      - MYSQL_HOST=mysql
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=root
-      - MYSQL_DATABASE=ether_finance
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-ether_finance}
       - WS_PORT=3002
     depends_on:
       - mongo
       - redis
-      - mysql
+      - postgres
     networks:
       - ether-net
 
@@ -61,4 +60,4 @@ networks:
 
 volumes:
   mongo_data:
-  mysql_data:
+  postgres_data:

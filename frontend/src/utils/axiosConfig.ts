@@ -1,19 +1,17 @@
 import axios from 'axios'
 
-// Detect if running in Electron
-const isElectron = !!(window as any).electronAPI
+const isTauri = !!(window as any).__TAURI__;
+const isElectron = !!(window as any).electronAPI;
 
-// Configure axios defaults
-// In Electron production, we need absolute URLs since file:// protocol can't resolve relative paths
 const getBaseURL = () => {
     // If VITE_API_URL is explicitly set, use it
     if (import.meta.env.VITE_API_URL) {
         return import.meta.env.VITE_API_URL
     }
 
-    // In Electron, use absolute localhost URL (change to production URL when deployed)
-    if (isElectron) {
-        return 'http://localhost:3001/api'
+    // In Desktop App (Tauri/Electron), use absolute localhost URL
+    if (isTauri || isElectron) {
+        return 'https://localhost:3001/api'
     }
 
     // In dev mode (with Vite proxy), use relative path

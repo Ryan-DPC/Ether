@@ -4,10 +4,12 @@ import { useGameStore } from '../stores/gameStore'
 import { useCategoryStore } from '../stores/categoryStore'
 import { useFriendsStore } from '../stores/friendsStore'
 import { useUserStore } from '../stores/userStore'
+import { statsService } from '../services/stats.service'
 import axios from 'axios'
 import InstallPathSelector from '../components/InstallPathSelector.vue'
 // import defaultGameImg from '@/assets/images/default-game.svg'
-const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
+import { getApiUrl } from '../utils/url';
+const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 
 const gameStore = useGameStore()
 const categoryStore = useCategoryStore()
@@ -211,6 +213,7 @@ const launchGame = async (folderName: string) => {
     const plainUser = userStore.user ? JSON.parse(JSON.stringify(userStore.user)) : null;
     
     const userData = { user: plainUser, token: token }
+    await statsService.startSession(folderName);
     await window.electronAPI.launchGame(installPath, folderName, userData)
   } catch (error: any) {
     alert(`Launch error: ${error.message}`)

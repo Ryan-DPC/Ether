@@ -7,12 +7,23 @@ import { useNotificationStore } from '../stores/notificationStore'
 import router from '../router'
 
 // Get WebSocket URL based on environment
+// Get WebSocket URL based on environment
 const getSocketUrl = () => {
-    if (import.meta.env.VITE_WEBSOCKET_URL) {
-        return import.meta.env.VITE_WEBSOCKET_URL
+    let url = import.meta.env.VITE_WEBSOCKET_URL;
+
+    // Auto-correct 'ether_server' (Docker) to 'localhost' if we are on the desktop app
+    // This handles the case where user didn't update .env
+    const isTauri = !!(window as any).__TAURI__;
+    const isElectron = !!(window as any).electronAPI;
+
+    if (url && (isTauri || isElectron) && url.includes('ether_server')) {
+        console.warn('⚠️ Auto-correcting Docker hostname to localhost for Desktop App');
+        return url.replace('ether_server', 'localhost');
     }
 
-    // Use localhost for now (change to production URL when deployed)
+    if (url) return url;
+
+    // Use localhost default
     return 'http://localhost:3002'
 }
 

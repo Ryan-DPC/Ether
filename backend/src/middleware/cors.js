@@ -4,6 +4,7 @@ const cors = require('cors');
 const allowedOrigins = [
     'http://localhost:5173',  // Vite dev server
     'http://localhost:3000',  // Alternative dev port
+    'tauri://localhost',      // Tauri production build
     'file://',                // Electron app
     process.env.FRONTEND_URL  // Production frontend
 ].filter(Boolean);
@@ -20,8 +21,8 @@ module.exports = cors({
             return callback(null, true);
         }
 
-        // In development, allow all localhost origins
-        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        // In development, allow all localhost and tauri origins
+        if (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.startsWith('tauri://')) {
             return callback(null, true);
         }
 

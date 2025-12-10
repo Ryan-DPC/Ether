@@ -11,7 +11,7 @@ pub struct UserData {
 
 #[derive(serde::Deserialize)]
 struct Manifest {
-    // id: Option<String>,
+    id: Option<String>,
     // name: Option<String>,
     entry: Option<String>,
     #[serde(rename = "entryPoint")]
@@ -59,11 +59,41 @@ pub fn launch_game(
         
         // Spawn detached
         match cmd.spawn() {
-            Ok(_) => {
+            Ok(mut child) => {
                 let _ = window.emit("game:status", serde_json::json!({
                     "folderName": folder_name,
                     "status": "running"
                 }));
+
+                let window_clone = window.clone();
+                let folder_name_clone = folder_name.clone();
+                let game_id = manifest.id.clone(); // Optional, if available
+
+                std::thread::spawn(move || {
+                    match child.wait() {
+                        Ok(status) => {
+                            let _ = window_clone.emit("game:status", serde_json::json!({
+                                "folderName": folder_name_clone,
+                                "status": "stopped"
+                            }));
+                            
+                            // Emit specific exit event for stats service
+                            let _ = window_clone.emit("game:exited", serde_json::json!({
+                                "folderName": folder_name_clone,
+                                "gameId": game_id,
+                                "code": status.code(),
+                                "timestamp": std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_millis()
+                            }));
+                        },
+                        Err(e) => {
+                            eprintln!("Failed to wait on child process: {}", e);
+                        }
+                    }
+                });
+
                 Ok("Game Launched".to_string())
             },
             Err(e) => Err(e.to_string())

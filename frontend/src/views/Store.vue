@@ -3,7 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useItemStore } from '../stores/itemStore'
 import { useUserStore } from '../stores/userStore'
 // import defaultGameImg from '@/assets/images/default-game.svg'
-const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
+import { getApiUrl } from '../utils/url';
+const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 
 const itemStore = useItemStore()
 const userStore = useUserStore()

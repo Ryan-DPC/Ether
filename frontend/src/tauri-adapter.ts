@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 
+
 // Define the interface match existing usage if possible, or just strict typing
 interface ElectronAPI {
     selectFolder: () => Promise<string | null>;
@@ -14,9 +15,11 @@ interface ElectronAPI {
     onInstallComplete: (callback: (data: any) => void) => void;
     onInstallError: (callback: (data: any) => void) => void;
     onGameStatus: (callback: (data: any) => void) => void;
+    onGameExited: (callback: (data: any) => void) => void;
 }
 
 const electronAPI: ElectronAPI = {
+    // ... existing methods ...
     selectFolder: async () => {
         const selected = await invoke('select_folder');
         return selected as string | null;
@@ -70,6 +73,11 @@ const electronAPI: ElectronAPI = {
     },
     onGameStatus: (callback) => {
         listen('game:status', (event: any) => {
+            callback(event.payload);
+        });
+    },
+    onGameExited: (callback) => {
+        listen('game:exited', (event: any) => {
             callback(event.payload);
         });
     }

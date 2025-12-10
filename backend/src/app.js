@@ -5,7 +5,7 @@ const { connectRedis } = require('./config/redis');
 const CronService = require('./services/cron.service');
 const DefaultImageService = require('./services/defaultImage.service');
 const compression = require('compression');
-const { connectMySQL, sequelize } = require('./config/mysql');
+const { connectDatabase, sequelize } = require('./config/database');
 
 // Import MySQL Models to ensure they are registered
 require('./features/finance/transaction.model');
@@ -37,6 +37,7 @@ const installationRoutes = require('./features/installation/installation.routes'
 const stickArenaRoutes = require('./features/stick-arena/stick-arena.routes');
 const wsBridgeRoutes = require('./features/ws-bridge/ws-bridge.routes');
 const financeRoutes = require('./features/finance/finance.routes');
+const statsRoutes = require('./features/stats/stats.routes');
 
 const app = express();
 
@@ -49,13 +50,13 @@ connectDB();
 // Connect to Redis
 connectRedis();
 
-// Connect to MySQL and Sync Models
-connectMySQL().then(async () => {
+// Connect to PostgreSQL and Sync Models
+connectDatabase().then(async () => {
     // Sync models - using alter: true to update tables if they exist but schema changed
     // In production, migrations are preferred over sync({alter: true})
     if (process.env.NODE_ENV !== 'production') {
         await sequelize.sync({ alter: true });
-        console.log('✅ MySQL Models Synced');
+        console.log('✅ PostgreSQL Models Synced');
     }
 });
 
@@ -100,6 +101,7 @@ app.use('/api/installation', installationRoutes);
 app.use('/api/stick-arena', stickArenaRoutes);
 app.use('/api/ws-bridge', wsBridgeRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Explicitly handle /socket.io/ to prevent HTML 404s if frontend connects here by mistake
 app.use('/socket.io/', (req, res) => {

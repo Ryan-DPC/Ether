@@ -2,7 +2,8 @@
 import { ref, onMounted, watch } from 'vue'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
 // import defaultGameImg from '@/assets/images/default-game.svg'
-const defaultGameImg = 'http://localhost:3001/public/default-game.svg'
+import { getApiUrl } from '../utils/url';
+const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 
 const marketplaceStore = useMarketplaceStore()
 
