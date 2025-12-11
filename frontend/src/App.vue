@@ -1,6 +1,7 @@
 <script setup>
 import { RouterView } from 'vue-router'
 import ToastNotification from './components/ToastNotification.vue'
+import AlertModal from './components/AlertModal.vue'
 import SakuraBackground from './components/SakuraBackground.vue'
 import ChatPopup from '@/components/ChatPopup.vue'
 import { useUserStore } from '@/stores/userStore'
@@ -13,7 +14,9 @@ const chatStore = useChatStore()
 <template>
   <RouterView />
   <SakuraBackground />
+  <SakuraBackground />
   <ToastNotification />
+  <AlertModal />
   
   <Transition name="chat-pop">
     <ChatPopup 
