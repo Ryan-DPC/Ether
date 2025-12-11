@@ -173,10 +173,11 @@ const equipItem = async (itemId: string) => {
 }
 
 .store-container {
-  height: 100%; width: 100%;
-  position: relative; overflow: hidden;
+  min-height: 100%; width: 100%;
+  position: relative;
   background-color: transparent; color: white;
   padding: 20px;
+  /* Removed height: 100% and overflow: hidden to allow full page scroll */
 }
 
 .bg-glow {
@@ -188,7 +189,8 @@ const equipItem = async (itemId: string) => {
 
 .store-layout {
   display: grid; grid-template-columns: 280px 1fr; gap: 24px;
-  height: 100%; position: relative; z-index: 1;
+  position: relative; z-index: 1;
+  /* Removed height: 100% */
 }
 
 /* Sidebar */
@@ -199,6 +201,7 @@ const equipItem = async (itemId: string) => {
   border-radius: 24px;
   padding: 24px;
   display: flex; flex-direction: column; gap: 24px;
+  height: fit-content; /* Only take needed height */
 }
 
 .sidebar-header h2 { margin: 0; font-size: 1.4rem; color: #ff7eb3; }
@@ -215,7 +218,7 @@ const equipItem = async (itemId: string) => {
 .glass-select:focus { outline: none; border-color: #7afcff; }
 
 .promo-box {
-  margin-top: auto;
+  margin-top: 20px;
   background: linear-gradient(135deg, rgba(255, 126, 179, 0.2), rgba(122, 252, 255, 0.1));
   padding: 20px; border-radius: 16px; border: 1px solid rgba(255, 126, 179, 0.3);
 }
@@ -224,7 +227,8 @@ const equipItem = async (itemId: string) => {
 
 /* Main Content */
 .main-content {
-  display: flex; flex-direction: column; overflow: hidden;
+  display: flex; flex-direction: column;
+  min-width: 0; /* Important for grid responsiveness */
 }
 
 .content-header {
@@ -242,11 +246,11 @@ const equipItem = async (itemId: string) => {
 
 .items-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 20px; overflow-y: auto; padding-right: 10px; padding-bottom: 20px;
+  gap: 20px; padding-bottom: 20px;
+  /* Removed overflow-y: auto so it grows with content */
 }
-.items-grid::-webkit-scrollbar { width: 6px; }
-.items-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 
+/* ... rest of item card styles ... */
 .item-card {
   background: rgba(30, 25, 40, 0.6);
   border: 1px solid rgba(255,255,255,0.08);
@@ -302,5 +306,57 @@ const equipItem = async (itemId: string) => {
 
 .loading-state, .empty-grid {
   text-align: center; padding: 40px; color: #777; font-size: 1.2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .store-layout {
+    grid-template-columns: 220px 1fr;
+    gap: 16px;
+  }
+  
+  .glass-panel {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .store-layout {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 40px;
+  }
+
+  .sidebar {
+    width: 100%; /* Full width sidebar on mobile */
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .sidebar-header h2 { font-size: 1.2rem; margin-right: 15px; }
+
+  .filter-group {
+    margin-bottom: 0;
+    min-width: 140px;
+  }
+  
+  .promo-box {
+    display: none;
+  }
+
+  /* .main-content no changes needed, it's just block flow now */
+
+  .items-grid {
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      /* Let it flow */
+  }
+  
+  .card-preview {
+      height: 140px;
+  }
 }
 </style>

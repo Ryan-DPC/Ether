@@ -38,6 +38,9 @@ const logout = () => {
 
 // Close menu when clicking outside
 import { onMounted, onUnmounted } from 'vue'
+import { useItemStore } from '@/stores/itemStore'
+
+const itemStore = useItemStore()
 
 const closeMenu = (e) => {
   if (isMenuOpen.value && !e.target.closest('.profile-section')) {
@@ -45,8 +48,21 @@ const closeMenu = (e) => {
   }
 }
 
-onMounted(() => {
+const equippedFrame = computed(() => {
+  const equipped = itemStore.myItems.find((i) => i.item?.item_type === 'avatar_frame' && i.is_equipped)
+  return equipped?.item?.image_url || null
+})
+
+const equippedBanner = computed(() => {
+  const equipped = itemStore.myItems.find((i) => i.item?.item_type === 'banner' && i.is_equipped)
+  return equipped?.item?.image_url || null
+})
+
+onMounted(async () => {
   document.addEventListener('click', closeMenu)
+  if (userStore.isAuthenticated) {
+      await itemStore.fetchMyItems()
+  }
 })
 
 onUnmounted(() => {
@@ -63,16 +79,31 @@ onUnmounted(() => {
       <div v-if="userStore.isAuthenticated" class="profile-section">
         <div class="info compact">
           <div class="profile-row">
-            <span class="user-username">{{ formattedUsername }}</span>
             
+            <!-- Group: Username + Profile Visuals -->
+            <div class="profile-info-group">
+                <span class="user-username">{{ formattedUsername }}</span>
+
+                <button @click.stop="toggleMenu" class="profile-visuals" aria-label="Menu utilisateur">
+                   <div class="visual-stack">
+                       <!-- Layer 1: Banner (Background) -->
+                       <div v-if="equippedBanner" class="header-banner" :style="{ backgroundImage: `url(${equippedBanner})` }"></div>
+                       
+                       <!-- Layer 2: Avatar -->
+                       <img :src="profilePicUrl" alt="Profile" class="header-avatar" :class="{ 'has-frame': equippedFrame }">
+                       
+                       <!-- Layer 3: Frame (Overlay) -->
+                       <img v-if="equippedFrame" :src="equippedFrame" class="header-frame-overlay">
+                   </div>
+                </button>
+            </div>
+
+            <!-- Notifications (Separate, on the right) -->
             <button @click="toggleNotifications" class="icon-btn" aria-label="Notifications">
               <i class="fas fa-bell"></i>
               <span v-if="notificationStore.unreadCount > 0" class="notification-badge"></span>
             </button>
-            
-            <button @click.stop="toggleMenu" class="icon-btn" aria-label="Menu utilisateur">
-               <img :src="profilePicUrl" alt="Profile" class="header-avatar">
-            </button>
+
           </div>
 
           <!-- Burger Menu -->
@@ -156,10 +187,17 @@ onUnmounted(() => {
   flex: 1;
 }
 
+.profile-info-group {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Gap between username and avatar */
+}
+
+/* Ensure profile-row handles the group and notification button */
 .profile-row {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 20px; /* Space between profile group and notification bell */
 }
 
 .user-username {
@@ -194,13 +232,64 @@ onUnmounted(() => {
   border: 2px solid var(--bg-secondary);
 }
 
+/* Profile Visuals Layering */
+.profile-visuals {
+    background: none; border: none; cursor: pointer; padding: 0;
+}
+
+.visual-stack {
+  position: relative;
+  width: 50px; /* Increased slightly to accommodate banner/frame */
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Layer 1: Banner (Mini Background) */
+.header-banner {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px; height: 30px; /* Rectangular banner shape behind round avatar? Or just a box? */
+    /* Let's assume a small landscape interaction behind the avatar */
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
+    border-radius: 4px;
+    opacity: 0.8;
+}
+
+/* Layer 2: Avatar */
 .header-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--accent-primary);
+  position: relative;
+  z-index: 1;
 }
+
+.header-avatar.has-frame {
+    border: none;
+    width: 80%; /* 40px container -> 32px */
+    height: 80%;
+}
+
+/* Layer 3: Frame */
+.header-frame-overlay {
+    position: absolute;
+    top: -5%;
+    left: -5%;
+    width: 110%;
+    height: 110%;
+    z-index: 2;
+    pointer-events: none;
+    object-fit: contain;
+}
+
+
 
 /* Keep existing burger menu styles but ensure they fit the theme */
 /* Dropdown Menu (formerly burger-menu) */

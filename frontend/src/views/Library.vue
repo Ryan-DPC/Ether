@@ -8,6 +8,7 @@ import { useAlertStore } from '../stores/alertStore'
 import { statsService } from '../services/stats.service'
 import axios from 'axios'
 import InstallPathSelector from '../components/InstallPathSelector.vue'
+import UserAutocomplete from '../components/UserAutocomplete.vue'
 // import defaultGameImg from '@/assets/images/default-game.svg'
 import { getApiUrl } from '../utils/url';
 const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
@@ -414,13 +415,17 @@ const addFriend = async () => {
         <!-- Add Friend Input -->
         <div v-if="showAddFriendInput" class="sidebar-collapsible">
             <div class="add-friend-row">
-                <input 
+                <UserAutocomplete
                   id="lib-friend-input"
-                  v-model="newFriendUsername" 
-                  placeholder="Username..." 
-                  @keyup.enter="addFriend"
-                  class="sidebar-input"
+                  v-model="newFriendUsername"
+                  placeholder="Username..."
+                  class="sidebar-input-container"
+                  @select="addFriend" 
                 >
+                    <template #prefix-icon>
+                        <!-- No icon needed here if styling matches or we adapt css -->
+                    </template>
+                </UserAutocomplete>
                 <button @click="addFriend" :disabled="isAddingFriend" class="sidebar-btn-small">OK</button>
             </div>
         </div>
@@ -447,7 +452,7 @@ const addFriend = async () => {
             <template v-else>
                 <div v-for="friend in filteredFriends" :key="friend.id" class="friend-item">
                     <div class="friend-avatar">
-                        <img :src="friend.profile_pic || 'https://via.placeholder.com/40'" alt="Avatar">
+                        <img :src="friend.profile_pic || '/default-avatar.svg'" alt="Avatar">
                         <div class="status-dot" :class="friend.status"></div>
                     </div>
                     <div class="friend-info">
@@ -681,11 +686,23 @@ const addFriend = async () => {
 }
 
 .add-friend-row { display: flex; gap: 8px; }
-.sidebar-input {
-    flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 4px; padding: 6px 10px; color: white; font-size: 0.9rem;
+.sidebar-input-container {
+    flex: 1;
 }
-.sidebar-input:focus { border-color: #7afcff; outline: none; }
+/* Deep selector to style the input inside the child component */
+:deep(.autocomplete-input) {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: white;
+    font-size: 0.9rem;
+}
+:deep(.autocomplete-input):focus {
+    border-color: #7afcff;
+}
+
 .sidebar-btn-small {
     background: #7afcff; color: #120c18; border: none; border-radius: 4px;
     padding: 0 12px; font-weight: bold; cursor: pointer;
