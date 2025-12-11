@@ -95,12 +95,15 @@ class Users {
         if (excludeUserId) filter._id = { $ne: new mongoose.Types.ObjectId(excludeUserId) };
         const docs = await UserModel.find(filter, { username: 1, profile_pic: 1, profile_picture: 1, elo: 1 }).lean();
         return docs.map((d) => {
-            const profilePic = d.profile_pic || d.profile_picture;
+            let finalPic = profilePic;
+            if (finalPic && (finalPic.includes('/assets/') || finalPic.includes('placeholder'))) {
+                finalPic = null;
+            }
             return {
                 id: d._id.toString(),
                 username: d.username,
-                profile_pic: profilePic || '/assets/images/default-game.png',
-                profile_picture: profilePic || '/assets/images/default-game.png',
+                profile_pic: finalPic,
+                profile_picture: finalPic,
                 elo: d.elo
             };
         });

@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useFriendsStore } from '../stores/friendsStore'
 import { useToastStore } from '../stores/toastStore'
+import UserAutocomplete from '../components/UserAutocomplete.vue'
 
 const friendsStore = useFriendsStore()
 const toastStore = useToastStore()
@@ -100,7 +101,7 @@ const handleAddFriend = async () => {
             </div>
             <div v-for="friend in friendsStore.friends" :key="friend.id" class="list-item">
               <div class="avatar-wrapper">
-                <img :src="friend.profile_pic || 'https://via.placeholder.com/40'" alt="Avatar">
+                <img :src="friend.profile_pic || '/default-avatar.svg'" alt="Avatar">
                 <div class="status-indicator" :class="friend.status"></div>
               </div>
               <div class="item-info">
@@ -142,7 +143,16 @@ const handleAddFriend = async () => {
           <!-- Add Friend Tab -->
           <div v-if="activeTab === 'add_friend'" class="add-friend-section">
             <div class="search-box-large">
-              <input v-model="addFriendQuery" placeholder="Enter username#1234" @keyup.enter="handleAddFriend">
+              <UserAutocomplete
+                v-model="addFriendQuery"
+                placeholder="Enter username#1234"
+                @select="handleAddFriend"
+                class="social-autocomplete"
+              >
+                  <template #prefix-icon>
+                      <!-- Intentionally left blank or can add icon if needed inside component via slot or keep outside -->
+                  </template>
+              </UserAutocomplete>
               <button @click="handleAddFriend" :disabled="isSearching" class="btn-neon-sm">
                 <i class="fas fa-paper-plane" v-if="!isSearching"></i>
                 <i class="fas fa-spinner fa-spin" v-else></i>
@@ -340,8 +350,11 @@ const handleAddFriend = async () => {
 .search-box-large {
   display: flex; gap: 10px;
 }
-.search-box-large input {
-  flex: 1; padding: 12px;
+.social-autocomplete {
+    flex: 1;
+}
+:deep(.autocomplete-input) {
+  width: 100%; padding: 12px;
   background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px; color: white;
 }

@@ -80,7 +80,7 @@ class FriendsService {
         return rows.map((r) => ({
             id: r.friend_id._id.toString(),
             username: r.friend_id.username,
-            avatar: r.friend_id.profile_pic, // Map profile_pic to avatar
+            profile_pic: r.friend_id.profile_pic, // Standardize to profile_pic
             status: r.friend_id.socket_id ? 'online' : 'offline' // Determine status
         }));
     }

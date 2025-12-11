@@ -78,7 +78,26 @@ class UsersService {
         if (!username) {
             throw new Error('Le champ de recherche est requis.');
         }
-        return await Users.findUsersByUsername(username, excludeUserId);
+        const users = await Users.findUsersByUsername(username, excludeUserId);
+
+        // Enrich with equipped frames
+        // We use a lazy require to avoid potential circular dependency issues during module loading
+        const ItemsService = require('../items/items.service');
+
+        const enrichedUsers = await Promise.all(users.map(async (user) => {
+            try {
+                const frameRaw = await ItemsService.getEquippedItem(user.id, 'avatar_frame');
+                return {
+                    ...user,
+                    frame_url: frameRaw ? frameRaw.image_url : null
+                };
+            } catch (e) {
+                // If fetching frame fails, just return user without frame
+                return user;
+            }
+        }));
+
+        return enrichedUsers;
     }
 
     static async updateAvatar(userId, avatarUrl) {
