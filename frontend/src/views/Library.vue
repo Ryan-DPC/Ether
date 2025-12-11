@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/gameStore'
 import { useCategoryStore } from '../stores/categoryStore'
 import { useFriendsStore } from '../stores/friendsStore'
 import { useUserStore } from '../stores/userStore'
+import { useAlertStore } from '../stores/alertStore'
 import { statsService } from '../services/stats.service'
 import axios from 'axios'
 import InstallPathSelector from '../components/InstallPathSelector.vue'
@@ -14,6 +15,7 @@ const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 const gameStore = useGameStore()
 const categoryStore = useCategoryStore()
 const friendsStore = useFriendsStore()
+const alertStore = useAlertStore()
 
 const showAddGameModal = ref(false)
 const newGameKey = ref('')
@@ -142,25 +144,47 @@ const handleAddGame = async () => {
     })
     
     if (response.status === 200 || response.status === 201) {
-      alert('Game added successfully!')
+      alertStore.showAlert({
+        title: 'Success',
+        message: 'Game added successfully!',
+        type: 'success'
+      })
       showAddGameModal.value = false
       newGameKey.value = ''
       newGameName.value = ''
       await gameStore.fetchHomeData()
     } else {
-      alert(response.data.message || 'Error adding game')
+      alertStore.showAlert({
+        title: 'Error',
+        message: response.data.message || 'Error adding game',
+        type: 'error'
+      })
     }
   } catch (error: any) {
-    alert(error.response?.data?.message || 'Network error')
+    alertStore.showAlert({
+      title: 'Error',
+      message: error.response?.data?.message || 'Network error',
+      type: 'error'
+    })
   }
 }
 
 const installGame = async (game: any) => {
-  if (!confirm(`Install ${game.game_name}?`)) return
+  if (!await alertStore.showConfirm({
+    title: 'Install Game',
+    message: `Install ${game.game_name}?`,
+    type: 'info',
+    confirmText: 'Install',
+    cancelText: 'Cancel'
+  })) return
 
   try {
     if (!window.electronAPI) {
-      alert('Installation requires Electron app')
+      alertStore.showAlert({
+        title: 'Error',
+        message: 'Installation requires Electron app',
+        type: 'error'
+      })
       return
     }
 
@@ -194,7 +218,11 @@ const installGame = async (game: any) => {
       }
     }
   } catch (error: any) {
-    alert(error.message || 'Installation error')
+    alertStore.showAlert({
+      title: 'Installation Error',
+      message: error.message || 'Installation error',
+      type: 'error'
+    })
   }
 }
 
@@ -204,7 +232,11 @@ const launchGame = async (folderName: string) => {
   try {
     const installPath = localStorage.getItem('etherInstallPath')
     if (!installPath) {
-      alert('Install path not configured.')
+      alertStore.showAlert({
+        title: 'Configuration Error',
+        message: 'Install path not configured.',
+        type: 'warning'
+      })
       return
     }
 
@@ -216,7 +248,11 @@ const launchGame = async (folderName: string) => {
     await statsService.startSession(folderName);
     await window.electronAPI.launchGame(installPath, folderName, userData)
   } catch (error: any) {
-    alert(`Launch error: ${error.message}`)
+    alertStore.showAlert({
+      title: 'Launch Error',
+      message: `Launch error: ${error.message}`,
+      type: 'error'
+    })
   }
 }
 
@@ -248,10 +284,18 @@ const addFriend = async () => {
   try {
     await friendsStore.sendFriendRequest(newFriendUsername.value.trim())
     newFriendUsername.value = ''
-    alert('Request sent!')
+    alertStore.showAlert({
+      title: 'Success',
+      message: 'Request sent!',
+      type: 'success'
+    })
     showAddFriendInput.value = false
   } catch (error: any) {
-    alert(error.message || 'Error sending request')
+    alertStore.showAlert({
+      title: 'Error',
+      message: error.message || 'Error sending request',
+      type: 'error'
+    })
   } finally {
     isAddingFriend.value = false
   }

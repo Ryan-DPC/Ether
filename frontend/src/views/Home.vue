@@ -217,7 +217,7 @@ const categories = [
         </div>
         
         <div class="games-grid">
-          <div v-for="game in gameStore.featuredGames" :key="game._id" class="game-card-neon">
+          <div v-for="game in gameStore.getFilteredGames(activeCategory)" :key="game._id" class="game-card-neon">
             <div class="card-image">
               <img :src="game.image_url || defaultGameImg" alt="Game">
               <div class="card-overlay">
@@ -236,7 +236,7 @@ const categories = [
           
           <!-- Fallback if no games -->
           <!-- Fallback if no games -->
-          <template v-if="gameStore.featuredGames.length === 0">
+          <template v-if="gameStore.getFilteredGames(activeCategory).length === 0">
              <div class="no-games-placeholder">
                 <p>No featured games available at the moment.</p>
              </div>

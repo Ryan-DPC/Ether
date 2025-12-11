@@ -15,8 +15,10 @@ const selectedGameForSale = ref('')
 const sellPrice = ref(0)
 
 // Filters
+// Filters
 const genreFilter = ref('')
-const priceRange = ref(100)
+const priceRange = ref(100) // Actual filter value (debounced/on change)
+const displayPrice = ref(100) // Visual value for slider
 
 onMounted(async () => {
   await marketplaceStore.fetchUsedGames()
@@ -31,12 +33,25 @@ const switchTab = (tab: string) => {
   }
 }
 
-const applyFilters = () => {
+// Update display price immediately, update filter price on change (mouse up)
+const updatePrice = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  displayPrice.value = Number(target.value)
+}
+
+const commitPrice = () => {
+  priceRange.value = displayPrice.value
+}
+
+// Real-time filtering (watch priceRange which updates on change)
+watch([genreFilter, priceRange], () => {
   marketplaceStore.fetchUsedGames({
     genre: genreFilter.value,
     maxPrice: priceRange.value
   })
-}
+}, { debounce: 500 })
+
+
 
 const openSellModal = async () => {
   await marketplaceStore.fetchOwnedGames()
@@ -193,13 +208,23 @@ watch(selectedGameForSale, () => {
 
         <!-- Buy Tab -->
         <div v-if="activeTab === 'marketplace'" class="tab-content">
-            <div class="filters-bar">
-                <input v-model="genreFilter" placeholder="Filter by Genre" class="glass-input">
-                <div class="range-filter">
-                    <label>Max Price: {{ priceRange }} CHF</label>
-                    <input type="range" v-model="priceRange" min="0" max="200" class="slider">
+            <div class="filters-container">
+                <div class="filter-group">
+                    <i class="fas fa-search filter-icon"></i>
+                    <input v-model="genreFilter" placeholder="Search by Genre..." class="glass-input search-input">
                 </div>
-                <button @click="applyFilters" class="btn-glass">Apply</button>
+                
+                <div class="filter-group price-group">
+                    <label>Max Price: <span class="price-val">{{ displayPrice }} CHF</span></label>
+                    <input 
+                      type="range" 
+                      :value="displayPrice" 
+                      @input="updatePrice" 
+                      @change="commitPrice"
+                      min="0" max="200" 
+                      class="slider"
+                    >
+                </div>
             </div>
 
             <div v-if="marketplaceStore.isLoading" class="loading"><i class="fas fa-circle-notch fa-spin"></i></div>
@@ -332,22 +357,64 @@ watch(selectedGameForSale, () => {
     padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600;
     transition: all 0.2s;
 }
-.tabs button.active { background: rgba(255,255,255,0.1); color: white; }
+.tabs button.active { background: #ff7eb3; color: #120c18; box-shadow: 0 0 15px rgba(255, 126, 179, 0.3); }
 
 .tab-content { flex: 1; overflow-y: auto; }
 
 /* Filters */
-.filters-bar {
-    display: flex; gap: 20px; align-items: center; margin-bottom: 20px;
-    background: rgba(30, 25, 40, 0.6); padding: 15px; border-radius: 12px;
+.filters-container {
+    display: flex; gap: 30px; align-items: center; margin-bottom: 30px;
+    background: rgba(30, 25, 40, 0.4); padding: 20px 30px; border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
-.glass-input {
-    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
-    color: white; padding: 8px 12px; border-radius: 6px;
+
+.filter-group {
+    position: relative;
+    display: flex; align-items: center;
 }
-.range-filter { display: flex; align-items: center; gap: 10px; color: #b0b9c3; }
-.slider { accent-color: #7afcff; }
+
+.filter-icon {
+    position: absolute; left: 15px; color: #b0b9c3; pointer-events: none;
+}
+
+.search-input {
+    padding: 12px 12px 12px 45px;
+    width: 300px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    color: white; font-size: 0.95rem;
+    transition: all 0.3s;
+}
+.search-input:focus {
+    background: rgba(255,255,255,0.1);
+    border-color: #ff7eb3;
+    box-shadow: 0 0 15px rgba(255, 126, 179, 0.1);
+    outline: none;
+}
+
+.price-group {
+    display: flex; flex-direction: column; gap: 10px; min-width: 250px;
+}
+.price-group label {
+    font-size: 0.9rem; color: #b0b9c3; display: flex; justify-content: space-between;
+}
+.price-val { color: #ff7eb3; font-weight: 700; }
+
+.slider {
+    -webkit-appearance: none; width: 100%; height: 6px;
+    background: rgba(255,255,255,0.1); border-radius: 3px; outline: none;
+}
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #ff7eb3; cursor: pointer;
+    box-shadow: 0 0 10px rgba(255, 126, 179, 0.5);
+    transition: transform 0.2s;
+}
+.slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
 /* Grid */
 .listings-grid {
