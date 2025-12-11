@@ -8,7 +8,8 @@ export const useItemStore = defineStore('item', {
         isLoading: false
     }),
     actions: {
-        async fetchStoreItems(filters: any = {}) {
+        async fetchStoreItems(filters: any = {}, force = false) {
+            if (!force && this.storeItems.length > 0 && Object.keys(filters).length === 0) return
             this.isLoading = true
             try {
                 const params = new URLSearchParams()

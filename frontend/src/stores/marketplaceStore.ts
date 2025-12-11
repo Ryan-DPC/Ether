@@ -12,7 +12,8 @@ export const useMarketplaceStore = defineStore('marketplace', {
         isLoading: false
     }),
     actions: {
-        async fetchUsedGames(filters: any = {}) {
+        async fetchUsedGames(filters: any = {}, force = false) {
+            if (!force && this.usedGames.length > 0 && Object.keys(filters).length === 0) return
             this.isLoading = true
             try {
                 const params = new URLSearchParams()

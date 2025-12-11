@@ -2,12 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useItemStore } from '../stores/itemStore'
 import { useUserStore } from '../stores/userStore'
+import { useAlertStore } from '../stores/alertStore'
 // import defaultGameImg from '@/assets/images/default-game.svg'
 import { getApiUrl } from '../utils/url';
 const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 
 const itemStore = useItemStore()
 const userStore = useUserStore()
+const alertStore = useAlertStore()
 const typeFilter = ref('')
 const rarityFilter = ref('')
 
@@ -23,13 +25,27 @@ const applyFilters = () => {
 }
 
 const buyItem = async (itemId: string, price: number) => {
-  if (confirm(`Buy this item for ${price} tokens?`)) {
+  if (await alertStore.showConfirm({
+    title: 'Purchase Confirmation',
+    message: `Buy this item for ${price} tokens?`,
+    type: 'info',
+    confirmText: 'Buy',
+    cancelText: 'Cancel'
+  })) {
     try {
       const result = await itemStore.purchaseItem(itemId)
-      alert(`Item purchased! Remaining tokens: ${result.remainingTokens}`)
+      alertStore.showAlert({
+        title: 'Success',
+        message: `Item purchased! Remaining tokens: ${result.remainingTokens}`,
+        type: 'success'
+      })
       await itemStore.fetchStoreItems()
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Purchase failed')
+      alertStore.showAlert({
+        title: 'Error',
+        message: error.response?.data?.message || 'Purchase failed',
+        type: 'error'
+      })
     }
   }
 }
@@ -37,10 +53,18 @@ const buyItem = async (itemId: string, price: number) => {
 const equipItem = async (itemId: string) => {
   try {
     await itemStore.equipItem(itemId)
-    alert('Item equipped!')
+    alertStore.showAlert({
+      title: 'Success',
+      message: 'Item equipped!',
+      type: 'success'
+    })
     await itemStore.fetchStoreItems()
   } catch (error: any) {
-    alert(error.response?.data?.message || 'Error')
+    alertStore.showAlert({
+      title: 'Error',
+      message: error.response?.data?.message || 'Error',
+      type: 'error'
+    })
   }
 }
 </script>
@@ -103,7 +127,7 @@ const equipItem = async (itemId: string) => {
         <div v-else class="items-grid">
           <div v-for="item in itemStore.storeItems" :key="item.id" class="item-card">
             <div class="card-preview">
-              <img :src="item.image_url || defaultGameImg">
+              <img :src="item.image_url || defaultGameImg" loading="lazy" decoding="async">
               <div class="rarity-tag" :class="item.rarity">{{ item.rarity }}</div>
               <div v-if="item.owned" class="owned-overlay"><i class="fas fa-check"></i> Owned</div>
             </div>

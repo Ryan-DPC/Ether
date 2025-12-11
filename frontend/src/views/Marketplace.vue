@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
+import { useAlertStore } from '../stores/alertStore'
 // import defaultGameImg from '@/assets/images/default-game.svg'
 import { getApiUrl } from '../utils/url';
 const defaultGameImg = `${getApiUrl()}/public/default-game.svg`;
 
 const marketplaceStore = useMarketplaceStore()
+const alertStore = useAlertStore()
 
 const activeTab = ref('marketplace')
 const showSellModal = ref(false)
@@ -43,7 +45,11 @@ const openSellModal = async () => {
 
 const handleSellGame = async () => {
   if (!selectedGameForSale.value || sellPrice.value <= 0) {
-    alert('Please fill all fields')
+    alertStore.showAlert({
+      title: 'Validation Error',
+      message: 'Please fill all fields',
+      type: 'warning'
+    })
     return
   }
 
@@ -64,7 +70,11 @@ const handleSellGame = async () => {
       }
     }
 
-    alert('Game listed for sale!')
+    alertStore.showAlert({
+      title: 'Success',
+      message: 'Game listed for sale!',
+      type: 'success'
+    })
     showSellModal.value = false
     selectedGameForSale.value = ''
     sellPrice.value = 0
@@ -72,32 +82,64 @@ const handleSellGame = async () => {
     await marketplaceStore.fetchOwnedGames()
     await marketplaceStore.fetchActiveSales()
   } catch (error: any) {
-    alert(error.response?.data?.message || 'Error listing game')
+    alertStore.showAlert({
+      title: 'Error',
+      message: error.response?.data?.message || 'Error listing game',
+      type: 'error'
+    })
   }
 }
 
 const buyUsedGame = async (game: any) => {
   const price = game.asking_price || 0
-  if (confirm(`Buy "${game.game_name}" for ${price.toFixed(2)} CHF?`)) {
+  if (await alertStore.showConfirm({
+    title: 'Purchase Confirmation',
+    message: `Buy "${game.game_name}" for ${price.toFixed(2)} CHF?`,
+    type: 'info',
+    confirmText: 'Buy',
+    cancelText: 'Cancel'
+  })) {
     try {
       await marketplaceStore.buyUsedGame(game.ownership_token, game.seller_id)
-      alert('Purchase successful!')
+      alertStore.showAlert({
+        title: 'Success',
+        message: 'Purchase successful!',
+        type: 'success'
+      })
       await marketplaceStore.fetchUsedGames()
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Purchase failed')
+      alertStore.showAlert({
+        title: 'Error',
+        message: error.response?.data?.message || 'Purchase failed',
+        type: 'error'
+      })
     }
   }
 }
 
 const cancelSale = async (ownershipToken: string) => {
-  if (confirm('Cancel this sale?')) {
+  if (await alertStore.showConfirm({
+    title: 'Cancel Sale',
+    message: 'Cancel this sale?',
+    type: 'warning',
+    confirmText: 'Yes, Cancel',
+    cancelText: 'No'
+  })) {
     try {
       await marketplaceStore.cancelSale(ownershipToken)
-      alert('Sale cancelled.')
+      alertStore.showAlert({
+        title: 'Success',
+        message: 'Sale cancelled.',
+        type: 'success'
+      })
       await marketplaceStore.fetchActiveSales()
       await marketplaceStore.fetchOwnedGames()
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Error')
+      alertStore.showAlert({
+        title: 'Error',
+        message: error.response?.data?.message || 'Error',
+        type: 'error'
+      })
     }
   }
 }
@@ -165,7 +207,7 @@ watch(selectedGameForSale, () => {
             <div v-else class="listings-grid">
                 <div v-for="game in marketplaceStore.usedGames" :key="game.ownership_token" class="listing-card">
                     <div class="card-img">
-                        <img :src="game.image_url || defaultGameImg">
+                        <img :src="game.image_url || defaultGameImg" loading="lazy" decoding="async">
                         <div class="price-tag">{{ game.asking_price }} CHF</div>
                     </div>
                     <div class="card-body">
@@ -184,7 +226,7 @@ watch(selectedGameForSale, () => {
             <div class="listings-grid">
                 <div v-for="sale in marketplaceStore.activeSales" :key="sale.ownership_token" class="listing-card my-listing">
                     <div class="card-img">
-                        <img :src="sale.image_url || defaultGameImg">
+                        <img :src="sale.image_url || defaultGameImg" loading="lazy" decoding="async">
                         <div class="price-tag">{{ sale.asking_price }} CHF</div>
                     </div>
                     <div class="card-body">
