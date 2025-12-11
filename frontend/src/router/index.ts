@@ -1,12 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useUserStore } from '../stores/userStore'
 import MainLayout from '../components/MainLayout.vue'
-import Home from '../views/Home.vue'
-import Library from '../views/Library.vue'
-import Marketplace from '../views/Marketplace.vue'
-import Store from '../views/Store.vue'
-import Profile from '../views/Profile.vue'
-import Admin from '../views/Admin.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 
@@ -49,25 +43,25 @@ const router = createRouter({
                 {
                     path: 'home',
                     name: 'home',
-                    component: Home,
+                    component: () => import('../views/Home.vue'),
                     meta: { requiresAuth: true }
                 },
                 {
                     path: 'library',
                     name: 'library',
-                    component: Library,
+                    component: () => import('../views/Library.vue'),
                     meta: { requiresAuth: true }
                 },
                 {
                     path: 'marketplace',
                     name: 'marketplace',
-                    component: Marketplace,
+                    component: () => import('../views/Marketplace.vue'),
                     meta: { requiresAuth: true }
                 },
                 {
                     path: 'store',
                     name: 'store',
-                    component: Store,
+                    component: () => import('../views/Store.vue'),
                     meta: { requiresAuth: true }
                 },
                 {
@@ -79,7 +73,7 @@ const router = createRouter({
                 {
                     path: 'profile',
                     name: 'profile',
-                    component: Profile,
+                    component: () => import('../views/Profile.vue'),
                     meta: { requiresAuth: true }
                 },
                 {
@@ -97,7 +91,7 @@ const router = createRouter({
                 {
                     path: 'admin',
                     name: 'admin',
-                    component: Admin,
+                    component: () => import('../views/Admin.vue'),
                     meta: { requiresAuth: true, requiresAdmin: true }
                 },
                 {
