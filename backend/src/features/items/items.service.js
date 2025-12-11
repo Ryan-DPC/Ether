@@ -353,6 +353,20 @@ class ItemsService {
                 }
             }
 
+            // Create Blockchain Transaction Record
+            const BlockchainTx = require('../library/blockchainTx.model');
+            const crypto = require('crypto');
+
+            await BlockchainTx.create({
+                transaction_id: `tx_${crypto.randomBytes(8).toString('hex')}`,
+                from_address: userId,
+                to_address: 'system_store',
+                amount: item.price,
+                transaction_type: 'item_purchase',
+                item_id: itemId,
+                timestamp: new Date()
+            });
+
             return {
                 success: true,
                 remainingTokens: user.tokens - item.price,

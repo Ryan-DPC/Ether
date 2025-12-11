@@ -98,7 +98,31 @@ class GameOwnershipService {
             purchase_price: 0
         });
 
-        return await ownership.save();
+        const savedOwnership = await ownership.save();
+
+        // Create Blockchain Transaction Record for Redemption
+        const BlockchainTx = require('../library/blockchainTx.model');
+        const crypto = require('crypto');
+        const Games = require('../games/games.model');
+
+        // Try to find game_id if possible
+        let gameId = null;
+        const gameDetails = await Games.getGameByName(gameKey);
+        if (gameDetails) gameId = gameDetails._id;
+
+        await BlockchainTx.create({
+            transaction_id: `tx_${crypto.randomBytes(8).toString('hex')}`,
+            from_address: 'system_redemption',
+            to_address: userId,
+            amount: 0,
+            transaction_type: 'game_redemption',
+            game_key: gameKey,
+            game_id: gameId,
+            ownership_token: savedOwnership.ownership_token,
+            timestamp: new Date()
+        });
+
+        return savedOwnership;
     }
 
     /**
@@ -281,28 +305,48 @@ class GameOwnershipService {
             ]
         }).sort({ timestamp: -1 }).limit(50).lean();
 
-        // Populate game names
+        // Populate details
         const enrichedTransactions = await Promise.all(transactions.map(async (tx) => {
-            let gameName = 'Unknown Game';
-            if (tx.game_id) {
-                const game = await Games.getGameById(tx.game_id);
-                if (game) gameName = game.game_name;
-            } else if (tx.game_key) {
-                const game = await Games.getGameByName(tx.game_key);
-                if (game) gameName = game.game_name;
-            }
-
-            // Determine type relative to user
+            let name = 'Unknown';
             let type = 'unknown';
-            if (tx.transaction_type === 'game_purchase') {
-                type = 'purchase';
-            } else if (tx.transaction_type === 'game_sale') {
-                type = tx.from_address === userId ? 'sale' : 'purchase';
+
+            if (tx.transaction_type === 'item_purchase') {
+                type = 'item_purchase';
+                const Items = require('../items/items.model');
+                if (tx.item_id) {
+                    const item = await Items.findById(tx.item_id);
+                    name = item ? item.name : 'Unknown Item';
+                }
+            } else if (tx.transaction_type === 'game_redemption') {
+                type = 'redemption';
+                if (tx.game_id) {
+                    const game = await Games.getGameById(tx.game_id);
+                    if (game) name = game.game_name;
+                } else if (tx.game_key) {
+                    const game = await Games.getGameByName(tx.game_key);
+                    if (game) name = game.game_name;
+                    else name = tx.game_key;
+                }
+            } else {
+                // Game purchase/sale
+                if (tx.game_id) {
+                    const game = await Games.getGameById(tx.game_id);
+                    if (game) name = game.game_name;
+                } else if (tx.game_key) {
+                    const game = await Games.getGameByName(tx.game_key);
+                    if (game) name = game.game_name;
+                }
+
+                if (tx.transaction_type === 'game_purchase') {
+                    type = 'purchase';
+                } else if (tx.transaction_type === 'game_sale') {
+                    type = tx.from_address === userId ? 'sale' : 'purchase';
+                }
             }
 
             return {
                 id: tx._id,
-                game_name: gameName,
+                game_name: name, // Frontend uses 'game_name' for display, we can reuse it or add 'name'
                 type: type,
                 amount: tx.amount,
                 created_at: tx.timestamp

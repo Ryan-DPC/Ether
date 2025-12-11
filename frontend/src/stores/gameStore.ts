@@ -10,6 +10,14 @@ export const useGameStore = defineStore('game', {
         featuredGames: [] as any[],
         isLoading: false
     }),
+    getters: {
+        getFilteredGames: (state) => (category: string) => {
+            if (!category || category === 'trending') return state.games
+            if (category === 'new') return state.newGames
+            if (category === 'top') return [...state.games].sort((a, b) => (b.rating || 0) - (a.rating || 0))
+            return state.games.filter(g => g.genre?.toLowerCase() === category.toLowerCase())
+        }
+    },
     actions: {
         async fetchHomeData() {
             this.isLoading = true
@@ -19,13 +27,7 @@ export const useGameStore = defineStore('game', {
                 this.newGames = response.data.newGames || []
 
                 // Populate featuredGames
-                // 1. Start with real games from backend
                 let featured = [...this.games]
-
-                // 2. Mock games removed. Only showing real games.
-
-                this.featuredGames = featured.slice(0, 4)
-
                 this.featuredGames = featured.slice(0, 4)
             } catch (error) {
                 console.error('Failed to fetch home data:', error)

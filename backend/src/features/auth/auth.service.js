@@ -71,6 +71,10 @@ class AuthService {
 
         if (!user) throw new Error('Utilisateur non trouvé.');
 
+        if (!user.password) {
+            throw new Error('Ce compte n\'a pas de mot de passe (connexion sociale ?).');
+        }
+
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) throw new Error('Mot de passe incorrect.');
 
