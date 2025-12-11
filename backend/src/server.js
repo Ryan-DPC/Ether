@@ -8,7 +8,8 @@ const fs = require('fs');
 const https = require('https');
 
 let server;
-if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
+// Only use HTTPS if explicitly enabled and keys are present
+if (process.env.ENABLE_HTTPS === 'true' && process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
     try {
         const httpsOptions = {
             key: fs.readFileSync(process.env.SSL_KEY_PATH),

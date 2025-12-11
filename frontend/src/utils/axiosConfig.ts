@@ -11,7 +11,7 @@ const getBaseURL = () => {
 
     // In Desktop App (Tauri/Electron), use absolute localhost URL
     if (isTauri || isElectron) {
-        return 'https://localhost:3001/api'
+        return 'http://localhost:3001/api'
     }
 
     // In dev mode (with Vite proxy), use relative path

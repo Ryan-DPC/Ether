@@ -21,12 +21,19 @@ interface ElectronAPI {
 const electronAPI: ElectronAPI = {
     // ... existing methods ...
     selectFolder: async () => {
-        const selected = await invoke('select_folder');
-        return selected as string | null;
+        if (!(window as any).__TAURI_INTERNALS__) return null;
+        try {
+            const selected = await invoke('select_folder');
+            return selected as string | null;
+        } catch (e) {
+            console.warn('Tauri invoke failed:', e);
+            return null;
+        }
     },
     isElectron: () => Promise.resolve(true), // Maintain compatibility with existing logic
 
     installGame: async (downloadUrl, installPath, folderName, gameId, gameName, _version, _manifest) => {
+        if (!(window as any).__TAURI_INTERNALS__) throw new Error('Not running in Tauri');
         try {
             return await invoke('install_game', {
                 downloadUrl,
@@ -36,50 +43,54 @@ const electronAPI: ElectronAPI = {
                 gameName
             });
         } catch (e: any) {
-            // Replicate Electron behavior: invoke throws, but we might want to trigger the error listener if components rely on it
-            // The original electron code did both (throw and send event).
-            // But usually invoke rejection is enough if component handles it.
-            // For safety, let's just let it throw.
             throw e;
         }
     },
 
-    checkGameInstalled: (installPath, folderName) =>
-        invoke('is_game_installed', { installPath, folderName }),
+    checkGameInstalled: (installPath, folderName) => {
+        if (!(window as any).__TAURI_INTERNALS__) return Promise.resolve(false);
+        return invoke('is_game_installed', { installPath, folderName });
+    },
 
-    uninstallGame: (installPath, folderName) =>
-        invoke('uninstall_game', { installPath, folderName }),
+    uninstallGame: (installPath, folderName) => {
+        if (!(window as any).__TAURI_INTERNALS__) return Promise.resolve(false);
+        return invoke('uninstall_game', { installPath, folderName });
+    },
 
-    launchGame: (installPath, folderName, userData) =>
-        invoke('launch_game', { installPath, folderName, userData }),
+    launchGame: (installPath, folderName, userData) => {
+        if (!(window as any).__TAURI_INTERNALS__) return Promise.reject('Not running in Tauri');
+        return invoke('launch_game', { installPath, folderName, userData });
+    },
 
     onInstallProgress: (callback) => {
+        if (!(window as any).__TAURI_INTERNALS__) return;
         listen('install:progress', (event: any) => {
             callback(event.payload);
-        });
+        }).catch(e => console.warn('Failed to listen to install:progress', e));
     },
     onInstallComplete: (callback) => {
+        if (!(window as any).__TAURI_INTERNALS__) return;
         listen('install:complete', (event: any) => {
             callback(event.payload);
-        });
+        }).catch(e => console.warn('Failed to listen to install:complete', e));
     },
     onInstallError: (callback) => {
-        // Rust might not emit this specific event, usually we rely on invoke promise rejection.
-        // But if we want to simulate it from Rust, we should have emitted it.
-        // For now, let's leave it compatible but might not trigger if only promise rejects.
+        if (!(window as any).__TAURI_INTERNALS__) return;
         listen('install:error', (event: any) => {
             callback(event.payload);
-        });
+        }).catch(e => console.warn('Failed to listen to install:error', e));
     },
     onGameStatus: (callback) => {
+        if (!(window as any).__TAURI_INTERNALS__) return;
         listen('game:status', (event: any) => {
             callback(event.payload);
-        });
+        }).catch(e => console.warn('Failed to listen to game:status', e));
     },
     onGameExited: (callback) => {
+        if (!(window as any).__TAURI_INTERNALS__) return;
         listen('game:exited', (event: any) => {
             callback(event.payload);
-        });
+        }).catch(e => console.warn('Failed to listen to game:exited', e));
     }
 };
 
