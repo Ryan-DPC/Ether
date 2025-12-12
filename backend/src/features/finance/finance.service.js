@@ -8,10 +8,13 @@ class FinanceService {
     /**
      * Get user transactions history
      */
-    static async getTransactionHistory(userId) {
-        return await Transaction.findAll({
+    static async getTransactionHistory(userId, page = 1, limit = 20) {
+        const offset = (page - 1) * limit;
+        return await Transaction.findAndCountAll({
             where: { userId },
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
+            limit,
+            offset
         });
     }
 
@@ -26,7 +29,7 @@ class FinanceService {
         const t = await sequelize.transaction();
 
         try {
-            // 1. Create Transaction Record in MySQL
+            // 1. Create Transaction Record in Postgres
             const transaction = await Transaction.create({
                 userId,
                 amount,
@@ -69,42 +72,55 @@ class FinanceService {
         const t = await sequelize.transaction();
 
         try {
-            // 1. Check User Balance in MongoDB
-            const user = await Users.getUserById(userId);
-            const currentBalance = user.balances[currency.toLowerCase()] || 0;
+            // 2. Atomic Deduct Balance in MongoDB (Check & Deduct)
+            // We do this BEFORE the SQL transaction to ensure funds exist and are locked.
+            // If SQL fails, we must refund (Compensating Transaction).
+            const hasFunds = await Users.decrementBalanceIfSufficient(userId, currency, amount);
 
-            if (currentBalance < amount) {
+            if (!hasFunds) {
+                // Rollback not needed as we haven't done anything yet
+                // But we need to ensure we don't proceed
+                await t.rollback(); // Close unused transaction
                 throw new Error('Insufficient funds');
             }
 
-            // 2. Create Transaction Record (Pending until admin approves or auto-processed)
-            const transaction = await Transaction.create({
-                userId,
-                amount: -amount, // Negative for withdrawal in logic if we want, or keep positive and use Type
-                currency,
-                type: 'WITHDRAWAL',
-                status: 'COMPLETED', // Auto-complete for mock
-                description: `Withdrawal to ${method}`,
-                metadata: { method }
-            }, { transaction: t });
+            try {
+                // 3. Create Transaction Record
+                const transaction = await Transaction.create({
+                    userId,
+                    amount: -amount,
+                    currency,
+                    type: 'WITHDRAWAL',
+                    status: 'COMPLETED',
+                    description: `Withdrawal to ${method}`,
+                    metadata: { method }
+                }, { transaction: t });
 
-            // 3. Create Invoice
-            await Invoice.create({
-                userId,
-                transactionId: transaction.id,
-                invoiceNumber: `INV-${Date.now()}`,
-                amount: amount, // Invoice shows absolute amount
-                currency
-            }, { transaction: t });
+                // 4. Create Invoice
+                await Invoice.create({
+                    userId,
+                    transactionId: transaction.id,
+                    invoiceNumber: `INV-${Date.now()}`,
+                    amount: amount,
+                    currency
+                }, { transaction: t });
 
-            // 4. Deduct Balance in MongoDB
-            await Users.decrementBalance(userId, currency, amount);
+                await t.commit();
+                return transaction;
 
-            await t.commit();
-            return transaction;
+            } catch (sqlError) {
+                // If SQL fails, Refund the User
+                await Users.incrementBalance(userId, currency, amount);
+                await t.rollback();
+                throw sqlError;
+            }
 
         } catch (error) {
-            await t.rollback();
+            // This catch block handles errors from the initial setup or the try/catch above
+            // If t is not finished, rollback
+            if (!t.finished) {
+                await t.rollback();
+            }
             throw error;
         }
     }

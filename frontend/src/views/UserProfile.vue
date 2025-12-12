@@ -54,7 +54,7 @@ import { getApiUrl } from '../utils/url';
                 <strong>Elo:</strong> {{ user.elo || 1000 }}
               </span>
               <span class="stat-item">
-                <strong>Tokens:</strong> {{ user.tokens || 0 }}
+                <strong>Veltrix Credits (VTX):</strong> {{ user.tokens || 0 }}
               </span>
             </div>
           </div>

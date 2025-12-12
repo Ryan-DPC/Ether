@@ -82,7 +82,10 @@ onUnmounted(() => {
             
             <!-- Group: Username + Profile Visuals -->
             <div class="profile-info-group">
-                <span class="user-username">{{ formattedUsername }}</span>
+                <div class="user-text-info">
+                    <span class="user-username">{{ formattedUsername }}</span>
+                    <span class="user-tokens">VTX : {{ userStore.user?.tokens || 0 }}</span>
+                </div>
 
                 <button @click.stop="toggleMenu" class="profile-visuals" aria-label="Menu utilisateur">
                    <div class="visual-stack">
@@ -200,10 +203,26 @@ onUnmounted(() => {
   gap: 20px; /* Space between profile group and notification bell */
 }
 
+.user-text-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1.3;
+}
+
+.user-tokens {
+  font-weight: 500;
+  color: var(--accent-primary);
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
 .user-username {
   font-weight: 600;
   color: var(--text-secondary);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
+  font-size: 1rem;
 }
 
 .icon-btn {

@@ -6,7 +6,7 @@ class CloudinaryCacheService {
         this.client = null;
         this.enabled = false;
         this.cachePrefix = 'cloudinary:manifests:';
-        this.cacheTTL = 3600; // 1 hour default
+        this.cacheTTL = 86400; // 24 hours default
         this.init();
     }
 

@@ -7,7 +7,7 @@ const DefaultImageService = require('./services/defaultImage.service');
 const compression = require('compression');
 const { connectDatabase, sequelize } = require('./config/database');
 
-// Import MySQL Models to ensure they are registered
+// Import Postgres Models to ensure they are registered
 require('./features/finance/transaction.model');
 require('./features/finance/invoice.model');
 
@@ -62,6 +62,15 @@ connectDatabase().then(async () => {
 
 // Ensure default game image exists on Cloudinary
 DefaultImageService.ensureDefaultImage();
+
+// Pre-warm Games Cache (Async)
+const GamesService = require('./features/games/games.service');
+setTimeout(() => {
+    console.log('🚀 Pre-warming Games Cache...');
+    GamesService.getAllGames()
+        .then(() => console.log('✅ Games Cache Warmed'))
+        .catch(err => console.error('❌ Failed to warm games cache:', err.message));
+}, 5000); // Wait 5s for DB/Redis connections
 
 // Start Cron Jobs
 const cronService = new CronService();

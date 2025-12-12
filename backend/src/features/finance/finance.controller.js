@@ -2,9 +2,22 @@ const FinanceService = require('./finance.service');
 
 class FinanceController {
     static async getHistory(req, res) {
-        const userId = req.user.id; // From Auth Middleware
-        const history = await FinanceService.getTransactionHistory(userId);
-        res.json({ success: true, data: history });
+        const userId = req.user.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+
+        const { count, rows } = await FinanceService.getTransactionHistory(userId, page, limit);
+
+        res.json({
+            success: true,
+            data: rows,
+            pagination: {
+                total: count,
+                page,
+                limit,
+                totalPages: Math.ceil(count / limit)
+            }
+        });
     }
 
     static async deposit(req, res) {

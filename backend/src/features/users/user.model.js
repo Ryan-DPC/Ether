@@ -144,6 +144,19 @@ class Users {
         return res.modifiedCount;
     }
 
+    static async decrementBalanceIfSufficient(userId, currency, amount, session = null) {
+        const balanceField = `balances.${currency.toLowerCase()}`;
+        const filter = {
+            _id: userId,
+            [balanceField]: { $gte: amount }
+        };
+        const update = { $inc: { [balanceField]: -amount } };
+        const options = session ? { session } : {};
+
+        const res = await UserModel.updateOne(filter, update, options);
+        return res.modifiedCount > 0;
+    }
+
     static async incrementBalance(userId, currency, amount, session = null) {
         const updateField = `balances.${currency.toLowerCase()}`;
         const options = session ? { session } : {};

@@ -277,6 +277,12 @@ class CloudinaryService {
     async getGameMetadata(folderName) {
         if (!this.enabled) throw new Error('Cloudinary not configured');
 
+        const cache = getCloudinaryCache();
+        if (cache.isEnabled()) {
+            const cached = await cache.getManifest(folderName);
+            if (cached) return cached;
+        }
+
         // Check cache via list first if possible, or fetch directly
         try {
             const publicId = `games/${folderName}/metadata.json`;
@@ -285,7 +291,13 @@ class CloudinaryService {
             const response = await fetch(url);
             if (!response.ok) throw new Error(`Metadata not found: ${response.status}`);
 
-            return await response.json();
+            const metadata = await response.json();
+
+            if (cache.isEnabled()) {
+                await cache.setManifest(folderName, metadata);
+            }
+
+            return metadata;
         } catch (error) {
             logger.error(`[Cloudinary] Error getting metadata for ${folderName}: ${error.message}`);
             throw error;
