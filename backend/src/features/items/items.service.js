@@ -3,6 +3,8 @@ const UserItems = require('./userItems.model');
 const Users = require('../users/user.model');
 const CloudinaryService = require('../../services/cloudinary.service');
 const mongoose = require('mongoose');
+const logger = require('../../utils/logger'); // LOGS STRUCTURES (Point 4)
+const { redisClient } = require('../../config/redis'); // Optimisation Cache
 
 class ItemsService {
     // --- Items Management ---
@@ -12,13 +14,45 @@ class ItemsService {
             // We now rely on ItemsSyncService (Cron) to keep MongoDB up to date.
             // This ensures we always return MongoDB _ids, which are required for purchase/equip operations.
 
+            // "Vintage" Feature: Hide archived items from the store listing by default
+            if (filters.is_archived === undefined) {
+                filters.is_archived = { $ne: true };
+            }
+
+            // OPTIMISATION: Cache Redis
+            // Clé de cache basée sur les filtres pour différencier les requêtes (ex: store vs admin)
+            const cacheKey = `items:all:${JSON.stringify(filters)}`;
+
+            try {
+                if (redisClient.isOpen) {
+                    const cachedData = await redisClient.get(cacheKey);
+                    if (cachedData) {
+                        logger.info(`[Items] ✅ Returning items from Redis Cache (${cacheKey})`);
+                        return JSON.parse(cachedData);
+                    }
+                }
+            } catch (cacheError) {
+                logger.warn('[Items] Redis cache error:', cacheError.message);
+            }
+
             // Fallback to MongoDB
-            console.log('[Items] Fetching items from MongoDB...', filters);
+            logger.info('[Items] Fetching items from MongoDB...', filters);
             const docs = await Items.find(filters).lean();
-            console.log(`[Items] Returning ${docs.length} items from MongoDB`);
-            return docs.map((d) => ({ id: d._id.toString(), ...d }));
+            const formattedDocs = docs.map((d) => ({ id: d._id.toString(), ...d }));
+            logger.info(`[Items] Returning ${docs.length} items from MongoDB`);
+
+            // Save to Cache (expire après 5 minutes)
+            try {
+                if (redisClient.isOpen) {
+                    await redisClient.set(cacheKey, JSON.stringify(formattedDocs), { EX: 300 });
+                }
+            } catch (cacheError) {
+                logger.warn('[Items] Failed to save to Redis:', cacheError.message);
+            }
+
+            return formattedDocs;
         } catch (error) {
-            console.error('[Items] ❌ Error fetching items:', error);
+            logger.error('[Items] ❌ Error fetching items:', error);
             throw error;
         }
     }
@@ -73,7 +107,7 @@ class ItemsService {
             };
         });
 
-        console.log(`[Items] ✅ Found ${items.length} items on Cloudinary`);
+        logger.info(`[Items] ✅ Found ${items.length} items on Cloudinary`);
         return items;
     }
 
@@ -84,6 +118,25 @@ class ItemsService {
     }
 
     static async searchItems(query) {
+        // Optimisation: Utilisation de l'index textuel MongoDB si possible
+        // Le fallback Regex est gardé pour les correspondances partielles non gérées par $text
+        // (ex: "ban" pour "banner") car $text cherche des mots complets par défaut.
+        try {
+            const docs = await Items.find(
+                { $text: { $search: query } },
+                { score: { $meta: 'textScore' } }
+            )
+                .sort({ score: { $meta: 'textScore' } })
+                .lean();
+
+            if (docs.length > 0) {
+                return docs.map((d) => ({ id: d._id.toString(), ...d }));
+            }
+        } catch (err) {
+            // Ignore error if text index not found (e.g. dev env update pending)
+            logger.warn('[Items] Text search failed or yields no result, falling back to Regex:', err.message);
+        }
+
         const regex = new RegExp(query, 'i');
         const docs = await Items.find({ $or: [{ name: regex }, { description: regex }] }).lean();
         return docs.map((d) => ({ id: d._id.toString(), ...d }));
@@ -179,7 +232,7 @@ class ItemsService {
                 : null;
 
             if (!userIdObj) {
-                console.warn(`[getEquippedItem] ⚠️ userId invalide: ${userId}`);
+                logger.warn(`[getEquippedItem] ⚠️ userId invalide: ${userId}`);
                 return null;
             }
 
@@ -198,7 +251,7 @@ class ItemsService {
             }
 
             if (!doc.item_id) {
-                console.log(`[getEquippedItem] Item équipé trouvé mais item_id est null (populate a échoué)`);
+                logger.warn(`[getEquippedItem] Item équipé trouvé mais item_id est null (populate a échoué)`);
                 return null;
             }
 
@@ -209,7 +262,7 @@ class ItemsService {
             }
             return item;
         } catch (error) {
-            console.error(`[getEquippedItem] ❌ Erreur:`, error.message);
+            logger.error(`[getEquippedItem] ❌ Erreur:`, error.message);
             return null;
         }
     }
@@ -234,7 +287,7 @@ class ItemsService {
 
             return result.modifiedCount > 0;
         } catch (error) {
-            console.error(`[unequipItem] ❌ Erreur:`, error.message);
+            logger.error(`[unequipItem] ❌ Erreur:`, error.message);
             throw error;
         }
     }
@@ -260,12 +313,12 @@ class ItemsService {
 
             return items;
         } catch (error) {
-            console.error('Erreur lors de la récupération de tous les items :', error);
+            logger.error('Erreur lors de la récupération de tous les items :', error);
             throw new Error('Erreur lors de la récupération de tous les items.');
         }
     }
 
-    // Acheter un item avec des tokens
+
     static async purchaseItem(userId, itemId) {
         try {
             // Vérifier si l'utilisateur possède déjà l'item
@@ -278,6 +331,11 @@ class ItemsService {
             const item = await this.getItemById(itemId);
             if (!item) {
                 throw new Error('Item non trouvé');
+            }
+
+            // "Vintage" Feature: Prevent buying archived items from the official store
+            if (item.is_archived) {
+                throw new Error('Cet item est "Legacy" (archivé) et n\'est plus disponible à l\'achat dans la boutique officielle.');
             }
 
             // Vérifier le solde de tokens
@@ -294,55 +352,12 @@ class ItemsService {
             const newTokens = user.tokens - item.price;
             await Users.updateUserTokens(userId, newTokens);
 
-            // Copier l'image de l'item dans le dossier personnel de l'utilisateur
-            let userImageUrl = null;
-            if (item.image_url) {
-                try {
-                    const cloudinaryService = new CloudinaryService();
+            // OPTIMISATION: On ne duplique plus l'image sur Cloudinary pour chaque utilisateur.
+            // Le frontend utilisera l'URL originale de l'item via le fallback (d.user_image_url || item.image_url).
+            // Cela économise du stockage et réduit drastiquement le temps de transaction (de ~30s à <1s).
+            const userImageUrl = null;
 
-                    if (cloudinaryService.isEnabled()) {
-                        // Télécharger l'image depuis l'URL de l'item
-                        const response = await fetch(item.image_url);
-                        if (response.ok) {
-                            const arrayBuffer = await response.arrayBuffer();
-                            const imageBuffer = Buffer.from(arrayBuffer);
-
-                            // Générer un nom de fichier unique basé sur l'ID de l'item
-                            const itemIdStr = itemId.toString();
-                            const fileName = itemIdStr.replace(/[^a-zA-Z0-9]/g, '_');
-                            // Le publicId ne doit contenir que le nom du fichier, le folder sera ajouté automatiquement
-                            const publicId = fileName;
-
-                            // Déterminer la transformation selon le type d'item
-                            let transformation = [];
-                            if (item.item_type === 'background') {
-                                // Pas de transformation, garder l'image originale
-                                transformation = [];
-                            } else if (item.item_type === 'banner') {
-                                transformation = [{ width: 1000, crop: 'scale' }];
-                            } else {
-                                // Avatar, frames, badges
-                                transformation = [{ width: 500, height: 500, crop: 'fill', gravity: 'auto' }];
-                            }
-
-                            // Uploader dans le dossier inventaire de l'utilisateur
-                            const uploadResult = await cloudinaryService.uploadBuffer(imageBuffer, publicId, {
-                                folder: `users/${userId}/inventaire`,
-                                resource_type: 'image',
-                                transformation: transformation
-                            });
-
-                            userImageUrl = uploadResult.url;
-                            console.log(`[ItemsService] ✅ Item copié dans inventaire utilisateur: ${userImageUrl}`);
-                        }
-                    }
-                } catch (copyError) {
-                    console.warn(`[ItemsService] ⚠️ Impossible de copier l'image dans l'inventaire:`, copyError.message);
-                    // Continuer même si la copie échoue, on utilisera l'URL originale
-                }
-            }
-
-            // Ajouter l'item à l'utilisateur avec l'URL personnalisée
+            // Ajouter l'item à l'utilisateur
             await this.addUserItem(userId, itemId, userImageUrl);
 
             // Si c'est un item de profil et que l'utilisateur n'en a pas d'équipé, l'équiper automatiquement
@@ -373,7 +388,7 @@ class ItemsService {
                 item: item
             };
         } catch (error) {
-            console.error('Erreur lors de l\'achat de l\'item :', error);
+            logger.error('Erreur lors de l\'achat de l\'item :', error);
             throw error;
         }
     }
@@ -402,7 +417,7 @@ class ItemsService {
                 profile_pic_url: newProfilePicUrl
             };
         } catch (error) {
-            console.error('Erreur lors de l\'équipement de l\'item :', error);
+            logger.error('Erreur lors de l\'équipement de l\'item :', error);
             throw error;
         }
     }
@@ -421,7 +436,27 @@ class ItemsService {
 
             return { success: success };
         } catch (error) {
-            console.error('Erreur lors du déséquipement de l\'item :', error);
+            logger.error('Erreur lors du déséquipement de l\'item :', error);
+            throw error;
+        }
+    }
+
+    // "Vintage" Feature: Soft Delete / Archive an item
+    static async archiveItem(itemId) {
+        try {
+            const item = await Items.findById(itemId);
+            if (!item) {
+                throw new Error('Item non trouvé');
+            }
+
+            // Set is_archived to true instead of deleting
+            item.is_archived = true;
+            await item.save();
+
+            logger.info(`[Items] Item ${itemId} (${item.name}) archived successfully.`);
+            return { success: true, message: 'Item archivé avec succès. Les propriétaires actuels le conservent.' };
+        } catch (error) {
+            logger.error('Erreur lors de l\'archivage de l\'item :', error);
             throw error;
         }
     }

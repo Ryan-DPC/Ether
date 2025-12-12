@@ -40,4 +40,7 @@ router.post('/unequip', auth, ItemsController.unequip);
 // Récupérer les items possédés par l'utilisateur (nécessite authentification)
 router.get('/my-items', auth, ItemsController.getMyItems);
 
+// Supprimer (archiver) un item (nécessite authentification, idéalement admin)
+router.delete('/:itemId', auth, ItemsController.delete);
+
 module.exports = router;

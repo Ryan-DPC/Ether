@@ -124,26 +124,30 @@ class Users {
         return user;
     }
 
-    static async updateUserTokens(id, tokens) {
-        const res = await UserModel.updateOne({ _id: id }, { $set: { tokens } });
+    static async updateUserTokens(id, tokens, session = null) {
+        const options = session ? { session } : {};
+        const res = await UserModel.updateOne({ _id: id }, { $set: { tokens } }, options);
         return res.modifiedCount;
     }
 
-    static async updateUserBalance(userId, currency, amount) {
+    static async updateUserBalance(userId, currency, amount, session = null) {
         const updateField = `balances.${currency.toLowerCase()}`;
-        const res = await UserModel.updateOne({ _id: userId }, { $set: { [updateField]: amount } });
+        const options = session ? { session } : {};
+        const res = await UserModel.updateOne({ _id: userId }, { $set: { [updateField]: amount } }, options);
         return res.modifiedCount;
     }
 
-    static async decrementBalance(userId, currency, amount) {
+    static async decrementBalance(userId, currency, amount, session = null) {
         const updateField = `balances.${currency.toLowerCase()}`;
-        const res = await UserModel.updateOne({ _id: userId }, { $inc: { [updateField]: -amount } });
+        const options = session ? { session } : {};
+        const res = await UserModel.updateOne({ _id: userId }, { $inc: { [updateField]: -amount } }, options);
         return res.modifiedCount;
     }
 
-    static async incrementBalance(userId, currency, amount) {
+    static async incrementBalance(userId, currency, amount, session = null) {
         const updateField = `balances.${currency.toLowerCase()}`;
-        const res = await UserModel.updateOne({ _id: userId }, { $inc: { [updateField]: amount } });
+        const options = session ? { session } : {};
+        const res = await UserModel.updateOne({ _id: userId }, { $inc: { [updateField]: amount } }, options);
         return res.modifiedCount;
     }
 

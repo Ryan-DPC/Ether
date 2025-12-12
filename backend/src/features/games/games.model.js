@@ -111,6 +111,20 @@ class Games {
         );
         return result.modifiedCount > 0;
     }
+
+    static async findGameByIdOrSlug(identifier) {
+        if (!identifier) return null;
+        let query;
+
+        if (mongoose.Types.ObjectId.isValid(identifier)) {
+            query = { $or: [{ _id: identifier }, { folder_name: identifier }] };
+        } else {
+            query = { folder_name: identifier };
+        }
+
+        const doc = await GameModel.findOne(query).lean();
+        return doc ? { id: doc._id.toString(), ...doc } : null;
+    }
 }
 
 module.exports = Games;

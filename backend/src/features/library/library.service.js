@@ -11,6 +11,10 @@ const CloudinaryService = require('../../services/cloudinary.service');
 const NpmInstaller = require('../../utils/npmInstaller');
 const path = require('path');
 const fs = require('fs');
+const logger = require('../../utils/logger'); // LOGS STRUCTURES (Point 4)
+
+// GESTION DES CHEMINS (Point 4)
+const GAMES_LIBRARY_PATH = process.env.GAMES_LIBRARY_PATH || path.join(__dirname, '../../../games');
 
 class LibraryService {
     constructor() {
@@ -26,28 +30,28 @@ class LibraryService {
     }
 
     async debugFix(userId) {
+        // ... (Debug logic kept as is but could be optimized if heavily used)
+        // For now, focusing on logger and path in next methods
         const mongoose = require('mongoose');
         const BlockchainTx = mongoose.models.BlockchainTransaction || mongoose.model('BlockchainTransaction');
         const Game = mongoose.models.Game || mongoose.model('Game');
         const userIdObj = new mongoose.Types.ObjectId(userId);
 
-        // 1. Fix Marketplace - no longer needed with unified system (uses for_sale field now)
-        const deletedListings = 0; // Marketplace is now integrated into GameOwnership
+        // 1. Fix Marketplace
+        const deletedListings = 0;
 
-        // 2. Fix Transactions
-        const game = await Game.findOne({ folder_name: 'spludbuster' });
+        // 2. Fix Transactions (Optimization: use lean on findOne)
+        const game = await Game.findOne({ folder_name: 'spludbuster' }).select('_id').lean();
         let fixedTxs = 0;
         if (game) {
             const userAddress = `user_${userId}`;
-            const txs = await BlockchainTx.find({
+            // Optimization: Update many at once instead of loop
+            const result = await BlockchainTx.updateMany({
                 $or: [{ from_address: userAddress }, { to_address: userAddress }],
                 amount: 5,
                 game_id: null
-            });
-            for (const tx of txs) {
-                await BlockchainTx.updateOne({ _id: tx._id }, { $set: { game_id: game._id } });
-                fixedTxs++;
-            }
+            }, { $set: { game_id: game._id } });
+            fixedTxs = result.modifiedCount;
         }
 
         // 3. Debug Library
@@ -57,7 +61,7 @@ class LibraryService {
 
         return {
             success: true,
-            deletedListings: deletedListings.deletedCount,
+            deletedListings: 0,
             fixedTransactions: fixedTxs,
             ownedGamesCount: ownedGames.length,
             ownedGames: ownedGames.map(g => ({
@@ -71,9 +75,11 @@ class LibraryService {
 
     // Acheter un jeu depuis le store officiel
     async purchaseGame(userId, gameId) {
-        try {
-            const mongoose = require('mongoose');
+        const mongoose = require('mongoose');
+        const session = await mongoose.startSession();
+        session.startTransaction();
 
+        try {
             // Convertir gameId en string
             let gameIdStr = String(gameId).trim();
             let folderName = null;
@@ -81,30 +87,31 @@ class LibraryService {
             // Détecter si c'est un ID Cloudinary factice (format: cloudinary_${folderName})
             if (gameIdStr.startsWith('cloudinary_')) {
                 folderName = gameIdStr.replace(/^cloudinary_/, '');
-                console.log(`[Library] Détection ID Cloudinary factice, folder_name: ${folderName}`);
+                logger.info(`[Library] Détection ID Cloudinary factice, folder_name: ${folderName}`);
             } else if (!mongoose.Types.ObjectId.isValid(gameIdStr)) {
                 // Si ce n'est pas un ObjectId, on suppose que c'est un folder_name (slug)
                 folderName = gameIdStr;
-                console.log(`[Library] ID non-ObjectId détecté, utilisation comme folder_name: ${folderName}`);
+                logger.info(`[Library] ID non-ObjectId détecté, utilisation comme folder_name: ${folderName}`);
             }
 
-            // Trouver le jeu (essayer ObjectId d'abord, puis recherche par id/folder_name)
-            let game = null;
-            if (mongoose.Types.ObjectId.isValid(gameIdStr)) {
-                game = await Games.getGameById(gameIdStr);
-            }
-            if (!game) {
-                const allGames = await Games.getAllGames();
-                game = allGames.find(g => String(g.id) === gameIdStr || String(g._id) === gameIdStr || g.folder_name === gameIdStr);
-                if (!game) game = await Games.getGameByName(gameIdStr);
-            }
+            // OPTIMISATION (Point 2): Utilisation de findGameByIdOrSlug au lieu de getAllGames() + find()
+            let game = await Games.findGameByIdOrSlug(gameIdStr);
 
             // Si le jeu n'existe pas dans MongoDB mais qu'on a un folder_name, le créer depuis Cloudinary
+            // NOTE: On ne fait pas cette opération dans la transaction car elle implique des appels externes (Cloudinary)
+            // et la création de jeu indépendante de l'achat.
             if (!game && folderName) {
-                console.log(`[Library] Jeu ${folderName} non trouvé dans MongoDB, tentative de création depuis Cloudinary...`);
+                // ... (Logic de création de jeu depuis Cloudinary conservée telle quelle, mais exécutée avant la transaction critique si possible?)
+                // Pour simplifier, on garde la logique ici, mais sachez que Game.addGame crée sa propre entrée.
+                // Idéalement, addGame devrait supporter une session, mais ici on crée le jeu DANS la DB globalement, 
+                // donc ça peut être hors de la transaction d'achat de l'utilisateur.
+
+                // ... (Cloudinary logic redacted for brevity, assuming existing logic works) ...
+                // REPLICATION DE LA LOGIQUE EXISTANTE (Simplifiée pour l'insert)
+
+                logger.info(`[Library] Jeu ${folderName} non trouvé dans MongoDB, tentative de création depuis Cloudinary...`);
                 try {
                     const cloudinaryService = new CloudinaryService();
-
                     if (cloudinaryService.isEnabled()) {
                         // Try to fetch manifest directly for dev games
                         const manifestUrl = cloudinaryService.getPublicUrl(`games/dev/${folderName}/manifest.json`, 'raw');
@@ -127,17 +134,12 @@ class LibraryService {
                                     manifestVersion: manifest.version || '1.0.0',
                                     manifestUpdatedAt: new Date(),
                                 };
-
                                 const newGameId = await Games.addGame(gameData);
                                 game = await Games.getGameById(newGameId);
-                                console.log(`[Library] ✅ Jeu dev ${folderName} créé dans MongoDB (ID: ${newGameId})`);
                             } else {
-                                // Fallback to existing logic if manifest fetch fails
                                 const cloudinaryGames = await cloudinaryService.getAllGames(false);
                                 const cloudinaryGame = cloudinaryGames.find(g => g.folder_name === folderName);
-
                                 if (cloudinaryGame) {
-                                    // ... existing creation logic ...
                                     const gameData = {
                                         game_name: cloudinaryGame.game_name || folderName,
                                         folder_name: folderName,
@@ -153,10 +155,8 @@ class LibraryService {
                                         manifestVersion: cloudinaryGame.manifestVersion || null,
                                         manifestUpdatedAt: cloudinaryGame.manifestUpdatedAt || null,
                                     };
-
                                     const newGameId = await Games.addGame(gameData);
                                     game = await Games.getGameById(newGameId);
-                                    console.log(`[Library] ✅ Jeu ${folderName} créé dans MongoDB (ID: ${newGameId})`);
                                 }
                             }
                         } catch (err) {
@@ -168,12 +168,14 @@ class LibraryService {
                 }
             }
 
-            // Si le jeu n'existe toujours pas, essayer de le chercher par folder_name directement
+            // Re-check game existence inside transaction just in case catch logic above succeeded
             if (!game && folderName) {
                 game = await Games.getGameByName(folderName);
             }
 
             if (!game) {
+                // Abort before throwing
+                // Actually catch block handles abort
                 throw new Error(`Jeu non trouvé (ID: ${gameIdStr}${folderName ? `, folder_name: ${folderName}` : ''})`);
             }
 
@@ -185,7 +187,8 @@ class LibraryService {
                 user_id: userIdObj,
                 game_id: gameObjectId,
                 status: 'owned'
-            }).lean();
+            }).session(session).lean(); // Use session for read consistency
+
             if (existing) {
                 throw new Error('Vous possédez déjà ce jeu.');
             }
@@ -202,7 +205,7 @@ class LibraryService {
             const availableKey = await GameKey.findOne({
                 game_id: gameObjectId,
                 is_used: false
-            }).lean();
+            }).session(session).lean();
 
             if (availableKey) {
                 // Utiliser une clé existante
@@ -210,14 +213,15 @@ class LibraryService {
                 // Marquer comme utilisée
                 await GameKey.updateOne({ _id: availableKey._id }, {
                     $set: { is_used: true, used_by: userIdObj, used_at: new Date() }
-                });
+                }, { session });
             } else {
                 // Générer une nouvelle clé de jeu unique
                 gameKey = generateGameKey();
-                let exists = await GameOwnership.findOne({ game_key: gameKey }) || await GameKey.findOne({ key: gameKey });
+                // Check collision (Looping with await inside transaction is fine)
+                let exists = await GameOwnership.findOne({ game_key: gameKey }).session(session) || await GameKey.findOne({ key: gameKey }).session(session);
                 while (exists) {
                     gameKey = generateGameKey();
-                    exists = await GameOwnership.findOne({ game_key: gameKey }) || await GameKey.findOne({ key: gameKey });
+                    exists = await GameOwnership.findOne({ game_key: gameKey }).session(session) || await GameKey.findOne({ key: gameKey }).session(session);
                 }
             }
 
@@ -227,37 +231,36 @@ class LibraryService {
                 throw new Error(`Solde CHF insuffisant. Vous avez ${userCHF.toFixed(2)} CHF, prix: ${gamePriceCHF.toFixed(2)} CHF`);
             }
 
-            // Déterminer le type de jeu depuis le manifest ou le folder_name
+            // Déterminer le type de jeu
             let gameType = 'web';
             try {
-                // Vérifier si c'est un jeu Electron (.exe)
-                // NOTE: Assuming games are stored in ../../../games relative to this file
-                // backend/src/features/library -> ../../../games
-                const gameManifestPath = path.join(__dirname, '../../../games', game.folder_name || '', 'manifest.json');
+                const gameManifestPath = path.join(GAMES_LIBRARY_PATH, game.folder_name || '', 'manifest.json');
                 if (fs.existsSync(gameManifestPath)) {
                     const manifest = JSON.parse(fs.readFileSync(gameManifestPath, 'utf8'));
                     if (manifest.platform === 'exe' || manifest.entryPoint?.endsWith('.exe')) {
                         gameType = 'exe';
                     }
                 }
-            } catch (e) {
-                // Ignorer les erreurs, utiliser 'web' par défaut
-            }
+            } catch (e) { }
 
-            // Si gratuit, ajouter directement à la bibliothèque sans transaction blockchain
+            let transaction = null;
+
+            // Si gratuit, ajouter et commit
             if (gamePriceCHF === 0) {
-                await GameOwnership.create({
+                await GameOwnership.create([{
                     user_id: userIdObj,
                     game_id: gameObjectId,
                     game_key: gameKey,
-                    game_name: game.game_name, // Added missing required field
+                    game_name: game.game_name,
                     purchase_price: 0,
                     current_price: 0,
                     status: 'owned',
-                    for_sale: false,  // CRITICAL: Set for_sale to false
+                    for_sale: false,
                     installed: false,
                     game_type: gameType
-                });
+                }], { session });
+
+                await session.commitTransaction();
                 return {
                     success: true,
                     gameKey,
@@ -265,8 +268,9 @@ class LibraryService {
                 };
             }
 
-            // Pour les jeux payants : créer transaction blockchain puis enregistrer la possession
-            const transaction = new Transaction(
+            // Pour les jeux payants
+            // Créer transaction blockchain (objet JS, pas encore DB)
+            transaction = new Transaction(
                 user.wallet_address || `user_${userId}`,
                 `platform_${gameObjectId}`,
                 gamePriceCHF,
@@ -274,48 +278,46 @@ class LibraryService {
                 gameObjectId.toString()
             );
 
-            this.blockchain.createTransaction(transaction);
-
             // Calculer les commissions
             const platformCommission = Math.floor(gamePriceCHF * this.platformCommissionRate);
             const developerCommission = Math.floor(gamePriceCHF * this.developerCommissionRate);
 
-            // Débiter le solde CHF AVANT de créer la possession
-            await Users.decrementBalance(userId, 'CHF', gamePriceCHF);
+            // Débiter le solde CHF (AVEC SESSION)
+            await Users.decrementBalance(userId, 'CHF', gamePriceCHF, session);
 
-            // Enregistrer la possession avec la game_key
-            await GameOwnership.create({
+            // Enregistrer la possession (AVEC SESSION)
+            await GameOwnership.create([{
                 user_id: userIdObj,
                 game_id: gameObjectId,
                 game_key: gameKey,
-                game_name: game.game_name, // Added missing required field
+                game_name: game.game_name,
                 purchase_price: gamePriceCHF,
                 current_price: gamePriceCHF,
                 status: 'owned',
-                for_sale: false,  // CRITICAL: Set for_sale to false
+                for_sale: false,
                 installed: false,
                 game_type: gameType
-            });
+            }], { session });
 
-            // Enregistrer les commissions
-            await Commission.create({
+            // Enregistrer les commissions (AVEC SESSION)
+            await Commission.create([{
                 transaction_id: transaction.transactionId,
                 recipient_type: 'platform',
                 recipient_id: null,
                 amount: platformCommission,
                 percentage: this.platformCommissionRate
-            });
+            }], { session });
 
-            await Commission.create({
+            await Commission.create([{
                 transaction_id: transaction.transactionId,
                 recipient_type: 'developer',
                 recipient_id: game.developer || null,
                 amount: developerCommission,
                 percentage: this.developerCommissionRate
-            });
+            }], { session });
 
-            // Enregistrer la transaction blockchain avec game_key
-            await BlockchainTx.create({
+            // Enregistrer la transaction blockchain DB (AVEC SESSION)
+            await BlockchainTx.create([{
                 transaction_id: transaction.transactionId,
                 from_address: transaction.fromAddress,
                 to_address: transaction.toAddress,
@@ -323,25 +325,38 @@ class LibraryService {
                 transaction_type: transaction.type,
                 game_id: gameObjectId,
                 game_key: gameKey
-            });
+            }], { session });
 
-            // Miner la transaction
-            this.blockchain.minePendingTransactions('platform_wallet');
+            // Commit Transaction
+            await session.commitTransaction();
 
-            // Récupérer le solde CHF final
+            // Operations post-commit (non bloquantes pour la DB, mais importantes pour l'état en mémoire)
+            try {
+                this.blockchain.createTransaction(transaction);
+                this.blockchain.minePendingTransactions('platform_wallet');
+            } catch (bcError) {
+                console.warn('[Library] Warning: Failed to update in-memory blockchain, but DB is consistent.', bcError);
+            }
+
+            // Récupérer le solde CHF final (Lecture simple)
             const updatedUser = await Users.getUserById(userId);
             const finalCHF = (updatedUser.balances && updatedUser.balances.chf) || 0;
 
             return {
                 success: true,
-                gameKey, // game_key est le token blockchain
+                gameKey,
                 transactionId: transaction?.transactionId || null,
                 remainingBalance: finalCHF
             };
 
         } catch (error) {
             console.error('Erreur lors de l\'achat du jeu :', error);
+            if (session.inTransaction()) {
+                await session.abortTransaction();
+            }
             throw error;
+        } finally {
+            session.endSession();
         }
     }
 
@@ -492,8 +507,8 @@ class LibraryService {
             let gameFolderPath = null;
 
             if (gameFolderName) {
-                // backend/src/features/library -> ../../../games
-                gameFolderPath = path.join(__dirname, '../../../games', gameFolderName);
+                // GAMES_LIBRARY_PATH (Point 4)
+                gameFolderPath = path.join(GAMES_LIBRARY_PATH, gameFolderName);
 
                 // Installer automatiquement les dépendances npm si nécessaire
                 try {
@@ -539,7 +554,7 @@ class LibraryService {
                 if (folderName) {
                     try {
                         // Vérifier si c'est un jeu Electron (.exe)
-                        const gameManifestPath = path.join(__dirname, '../../../games', folderName, 'manifest.json');
+                        const gameManifestPath = path.join(GAMES_LIBRARY_PATH, folderName, 'manifest.json');
                         if (fs.existsSync(gameManifestPath)) {
                             const manifest = JSON.parse(fs.readFileSync(gameManifestPath, 'utf8'));
                             if (manifest.platform === 'exe' || manifest.entryPoint?.endsWith('.exe')) {

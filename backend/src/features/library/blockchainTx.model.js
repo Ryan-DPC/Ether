@@ -16,4 +16,8 @@ const blockchainTxSchema = new mongoose.Schema(
     { timestamps: false }
 );
 
+// Indexes for faster history lookup by address and time
+blockchainTxSchema.index({ from_address: 1, timestamp: -1 });
+blockchainTxSchema.index({ to_address: 1, timestamp: -1 });
+
 module.exports = mongoose.models.BlockchainTx || mongoose.model('BlockchainTx', blockchainTxSchema);

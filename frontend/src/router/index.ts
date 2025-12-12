@@ -1,8 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useUserStore } from '../stores/userStore'
 import MainLayout from '../components/MainLayout.vue'
-import Login from '../views/Login.vue'
-import Register from '../views/Register.vue'
 
 const router = createRouter({
     history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -10,12 +8,12 @@ const router = createRouter({
         {
             path: '/login',
             name: 'login',
-            component: Login
+            component: () => import('../views/Login.vue')
         },
         {
             path: '/register',
             name: 'register',
-            component: Register
+            component: () => import('../views/Register.vue')
         },
         {
             path: '/forgot-password',

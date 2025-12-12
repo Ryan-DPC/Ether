@@ -97,6 +97,7 @@ const gameOwnershipSchema = new mongoose.Schema(
 gameOwnershipSchema.index({ user_id: 1, game_key: 1 }, { unique: true });
 gameOwnershipSchema.index({ for_sale: 1, asking_price: 1 });
 gameOwnershipSchema.index({ for_sale: 1, listed_at: -1 }); // Optimized for "Newest Arrivals" sort
+gameOwnershipSchema.index({ user_id: 1, status: 1 }); // Optimized for fetching "My Games" vs "My Sales"
 
 // Generate unique ownership token before save
 gameOwnershipSchema.pre('save', function (next) {

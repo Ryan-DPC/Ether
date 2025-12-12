@@ -2,6 +2,7 @@ services:
   mongo:
     image: mongo:latest
     container_name: ether_mongo
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
     ports:
       - "27017:27017"
     volumes:
