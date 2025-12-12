@@ -217,6 +217,18 @@ class UsersService {
             throw error;
         }
     }
+
+    static async addToWishlist(userId, gameId) {
+        return await Users.addToWishlist(userId, gameId);
+    }
+
+    static async removeFromWishlist(userId, gameId) {
+        return await Users.removeFromWishlist(userId, gameId);
+    }
+
+    static async getWishlist(userId) {
+        return await Users.getWishlist(userId);
+    }
 }
 
 module.exports = UsersService;

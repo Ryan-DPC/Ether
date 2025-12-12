@@ -21,9 +21,11 @@ const priceRange = ref(100) // Actual filter value (debounced/on change)
 const displayPrice = ref(100) // Visual value for slider
 
 onMounted(async () => {
-  await marketplaceStore.fetchUsedGames()
-  await marketplaceStore.fetchActiveSales()
-  await marketplaceStore.fetchOwnedGames()
+  await Promise.all([
+    marketplaceStore.fetchUsedGames(),
+    marketplaceStore.fetchActiveSales(),
+    marketplaceStore.fetchOwnedGames()
+  ])
 })
 
 const switchTab = (tab: string) => {
@@ -44,12 +46,24 @@ const commitPrice = () => {
 }
 
 // Real-time filtering (watch priceRange which updates on change)
-watch([genreFilter, priceRange], () => {
+const debounce = (fn: Function, delay: number) => {
+  let timeoutId: any
+  return (...args: any[]) => {
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => fn(...args), delay)
+  }
+}
+
+const fetchGamesDebounced = debounce(() => {
   marketplaceStore.fetchUsedGames({
     genre: genreFilter.value,
     maxPrice: priceRange.value
   })
-}, { debounce: 500 })
+}, 500)
+
+watch([genreFilter, priceRange], () => {
+  fetchGamesDebounced()
+})
 
 
 

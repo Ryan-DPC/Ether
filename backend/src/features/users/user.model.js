@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema(
         level: { type: Number, default: 1 },
         status_message: { type: String, default: 'Online' },
         favorite_games: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }],
+        wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Game' }],
         resetPasswordToken: { type: String, default: null },
         resetPasswordExpires: { type: Date, default: null },
         bio: { type: String, default: '' },
@@ -210,6 +211,30 @@ class Users {
         }).lean();
         if (!doc) return null;
         return { ...doc, id: doc._id.toString() };
+    }
+
+    static async addToWishlist(userId, gameId) {
+        // Resolve Game ID (in case slug is passed)
+        const Games = require('../games/games.model');
+        const game = await Games.findGameByIdOrSlug(gameId);
+        if (!game) throw new Error('Game not found');
+
+        return await UserModel.updateOne({ _id: userId }, { $addToSet: { wishlist: game._id } });
+    }
+
+    static async removeFromWishlist(userId, gameId) {
+        // Resolve Game ID
+        const Games = require('../games/games.model');
+        const game = await Games.findGameByIdOrSlug(gameId);
+        // If game not found, try removing raw ID anyway just in case
+        const idToRemove = game ? game._id : gameId;
+
+        return await UserModel.updateOne({ _id: userId }, { $pull: { wishlist: idToRemove } });
+    }
+
+    static async getWishlist(userId) {
+        const doc = await UserModel.findById(userId).populate('wishlist').lean();
+        return doc ? doc.wishlist : [];
     }
 }
 

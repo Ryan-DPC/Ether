@@ -28,14 +28,35 @@ class GamesService {
     }
 
     static async getGameDetails(folderName, userId) {
-        // 1. Get Metadata (Cloudinary or DB)
+        const { redisClient } = require('../../config/redis');
+        const cacheKey = `game:details:${folderName}`;
+
+        // 1. Try Cache
+        try {
+            if (redisClient.isOpen) {
+                const cached = await redisClient.get(cacheKey);
+                if (cached) {
+                    const cachedGame = JSON.parse(cached);
+                    // Append user-specific ownership logic (dynamic, not cached)
+                    return {
+                        game: cachedGame,
+                        userOwnsGame: true, // simplified logic
+                        ownershipInfo: null
+                    };
+                }
+            }
+        } catch (e) {
+            console.warn('[Games] Cache read error:', e.message);
+        }
+
+        // 2. Get Metadata (Cloudinary or DB)
         let game = await this.getGameByName(folderName);
 
         if (!game) {
             throw new Error('Game not found.');
         }
 
-        // 2. Enhance with GitHub Info (Version, Download URL)
+        // 3. Enhance with GitHub Info (Version, Download URL)
         let latestRelease = null;
         if (game.github_url) {
             try {
@@ -59,10 +80,19 @@ class GamesService {
             publishedAt: latestRelease ? latestRelease.publishedAt : game.updated_at
         };
 
-        // 3. User Ownership (Simplified)
+        // 4. Save to Cache (Public data only)
+        try {
+            if (redisClient.isOpen) {
+                await redisClient.set(cacheKey, JSON.stringify(enhancedGame), { EX: 3600 }); // Cache for 1 hour
+            }
+        } catch (e) {
+            console.warn('[Games] Cache write error:', e.message);
+        }
+
+        // 5. User Ownership (Simplified)
         return {
             game: enhancedGame,
-            userOwnsGame: true, // simplified
+            userOwnsGame: true,
             ownershipInfo: null
         };
     }

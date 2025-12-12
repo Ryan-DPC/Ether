@@ -150,6 +150,38 @@ class UsersController {
             res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    static async addToWishlist(req, res) {
+        try {
+            const userId = req.user.id;
+            const { gameId } = req.body;
+            await UsersService.addToWishlist(userId, gameId);
+            res.json({ success: true, message: 'Added to wishlist' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    static async removeFromWishlist(req, res) {
+        try {
+            const userId = req.user.id;
+            const { gameId } = req.params;
+            await UsersService.removeFromWishlist(userId, gameId);
+            res.json({ success: true, message: 'Removed from wishlist' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    static async getWishlist(req, res) {
+        try {
+            const userId = req.user.id;
+            const wishlist = await UsersService.getWishlist(userId);
+            res.json({ success: true, wishlist });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = UsersController;

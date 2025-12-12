@@ -33,6 +33,13 @@ const installProgress = ref({
   type: 'download'
 })
 
+// Wishlist & Reviews State
+const isInWishlist = ref(false)
+const reviews = ref<any[]>([])
+const reviewForm = ref({ rating: 5, content: '' })
+const isSubmittingReview = ref(false)
+const reviewError = ref('')
+
 onMounted(async () => {
     try {
         // Try to fetch from regular games API first
@@ -100,6 +107,10 @@ onMounted(async () => {
                 await checkInstallationStatus()
                 setupInstallListeners()
             }
+            
+            // Load Wishlist & Reviews
+            await checkWishlistStatus()
+            await fetchReviews()
         }
     } catch (err: any) {
         error.value = err.message || 'Erreur lors du chargement du jeu'
@@ -308,6 +319,75 @@ const uninstallGame = async () => {
         }
     }
 }
+
+// Wishlist Logic
+const checkWishlistStatus = async () => {
+    try {
+        const response = await axios.get('/users/wishlist')
+        const wishlist = response.data.wishlist || []
+        // Check if current game ID or folder name is in wishlist
+        // Wishlist usually returns array of Game Objects if populated, or IDs.
+        // My backend populate('wishlist'), so it returns objects.
+        isInWishlist.value = wishlist.some((g: any) => g._id === game.value._id || g.id === game.value._id)
+    } catch (e) {
+        console.error('Error checking wishlist:', e)
+    }
+}
+
+const toggleWishlist = async () => {
+    try {
+        const id = game.value._id || game.value.slug
+        if (isInWishlist.value) {
+            await axios.delete(`/users/wishlist/${id}`)
+            isInWishlist.value = false
+             alertStore.showAlert({ title: 'Wishlist', message: 'Retiré de la liste de souhaits', type: 'info' })
+        } else {
+            await axios.post('/users/wishlist', { gameId: id })
+            isInWishlist.value = true
+            alertStore.showAlert({ title: 'Wishlist', message: 'Ajouté à la liste de souhaits !', type: 'success' })
+        }
+    } catch (e: any) {
+         alertStore.showAlert({ title: 'Erreur', message: e.response?.data?.message || 'Erreur wishlist', type: 'error' })
+    }
+}
+
+// Reviews Logic
+const fetchReviews = async () => {
+    try {
+        // We need the ID. game.value._id or game.value.folder_name?
+        // Route is :gameId/reviews. Backend usually expects ObjectId but let's check.
+        // We updated games routes to be strict? No, usually ID or slug if handled.
+        // Controller uses :gameId directly.
+        // Let's safe bet use _id if available, else slug.
+        const id = game.value._id || game.value.slug
+        const response = await axios.get(`/games/${id}/reviews`)
+        reviews.value = response.data
+    } catch (e) {
+        console.error('Error fetching reviews:', e)
+    }
+}
+
+const submitReview = async () => {
+    if (!reviewForm.value.content) return
+    isSubmittingReview.value = true
+    reviewError.value = ''
+    try {
+        const id = game.value._id || game.value.slug
+        await axios.post(`/games/${id}/reviews`, {
+            rating: reviewForm.value.rating,
+            content: reviewForm.value.content
+        })
+        
+        // Refresh
+        await fetchReviews()
+        reviewForm.value = { rating: 5, content: '' } // Reset
+        alertStore.showAlert({ title: 'Merci !', message: 'Votre avis a été publié.', type: 'success' })
+    } catch (e: any) {
+        reviewError.value = e.response?.data?.message || 'Erreur lors de la publication'
+    } finally {
+        isSubmittingReview.value = false
+    }
+}
 </script>
 
 <template>
@@ -347,6 +427,11 @@ const uninstallGame = async () => {
                 </div>
             </div>
 
+            <!-- Wishlist Button (Absolute or relative in hero) -->
+            <button class="btn-wishlist" :class="{ active: isInWishlist }" @click="toggleWishlist" title="Ajouter à la liste de souhaits">
+                <i :class="isInWishlist ? 'fas fa-heart' : 'far fa-heart'"></i>
+            </button>
+
             <!-- Main Grid Layout -->
             <div class="main-grid">
                 <!-- Left Column: Content -->
@@ -364,6 +449,53 @@ const uninstallGame = async () => {
                         <div class="media-grid">
                             <div class="media-placeholder"></div>
                             <div class="media-placeholder"></div>
+                        </div>
+                    </section>
+                    
+                    <!-- Reviews Section -->
+                    <section class="reviews-section">
+                        <div class="reviews-header">
+                            <h2 class="section-title">Avis de la communauté</h2>
+                            <span class="review-count">({{ reviews.length }})</span>
+                        </div>
+
+                        <!-- Write Review -->
+                        <div class="write-review glass-panel">
+                            <h3>Laisser un avis</h3>
+                            <div class="rating-select">
+                                <span v-for="star in 5" :key="star" 
+                                      @click="reviewForm.rating = star"
+                                      :class="{ active: star <= reviewForm.rating }">★</span>
+                            </div>
+                            <textarea v-model="reviewForm.content" placeholder="Partagez votre expérience..."></textarea>
+                            <div v-if="reviewError" class="error-msg">{{ reviewError }}</div>
+                            <button @click="submitReview" :disabled="isSubmittingReview || !reviewForm.content" class="btn-primary btn-sm">
+                                {{ isSubmittingReview ? 'Publication...' : 'Publier' }}
+                            </button>
+                        </div>
+
+                        <!-- Review List -->
+                        <div class="reviews-list">
+                            <div v-if="reviews.length === 0" class="no-reviews">
+                                Soyez le premier à donner votre avis !
+                            </div>
+                            <div v-for="review in reviews" :key="review.id" class="review-card glass-panel">
+                                <div class="review-header">
+                                    <div class="user-info">
+                                        <img :src="review.user?.profile_pic || defaultGameImg" class="avatar-sm">
+                                        <span class="username">{{ review.user?.username || 'Utilisateur' }}</span>
+                                    </div>
+                                    <div class="rating-display">
+                                        <span class="stars">
+                                            {{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}
+                                        </span>
+                                        <span class="date">{{ new Date(review.created_at).toLocaleDateString() }}</span>
+                                    </div>
+                                </div>
+                                <div class="review-body">
+                                    {{ review.content }}
+                                </div>
+                            </div>
                         </div>
                     </section>
                 </div>
@@ -526,10 +658,11 @@ const uninstallGame = async () => {
     position: absolute;
     bottom: 0;
     left: 0;
+    right: 0; /* Critical for margin: 0 auto to work with max-width on absolute element */
     width: 100%;
-    max-width: 1400px;
+    max-width: 1800px; /* Wider layout */
     margin: 0 auto;
-    padding: 40px;
+    padding: 0 80px 40px 80px; /* More side spacing */
     display: flex;
     align-items: flex-end;
     pointer-events: none; /* Let clicks pass through to image if needed */
@@ -594,22 +727,27 @@ const uninstallGame = async () => {
 
 /* Main Grid */
 .main-grid {
-    max-width: 1400px;
+    max-width: 1800px; /* Wider layout */
     margin: 80px auto 0;
-    padding: 0 40px;
+    padding: 0 80px; /* More side spacing */
     display: grid;
     grid-template-columns: 1fr 380px;
     gap: 60px;
 }
 
 /* Left Column */
+.left-column {
+    /* No extra padding, alignment handled by grid and container padding */
+}
+
 .section-title {
     font-size: 1.8rem;
     font-weight: 700;
     margin-bottom: 24px;
     color: #fff;
-    border-left: 4px solid #00dc82;
-    padding-left: 16px;
+    /* border-left: 4px solid #00dc82; */
+    /* padding-left: 16px; */
+    display: inline-block;
 }
 
 .description-text {
@@ -797,4 +935,62 @@ const uninstallGame = async () => {
         padding: 20px;
     }
 }
+
+/* Wishlist Button */
+.btn-wishlist {
+    position: absolute;
+    top: 40px;
+    right: 40px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+    transition: all 0.3s;
+    backdrop-filter: blur(5px);
+    z-index: 10;
+     display: flex; align-items: center; justify-content: center;
+}
+.btn-wishlist:hover { transform: scale(1.1); background: rgba(0,0,0,0.7); }
+.btn-wishlist.active { color: #ff4444; border-color: #ff4444; }
+
+/* Reviews */
+.reviews-section { margin-top: 60px; }
+.reviews-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+.review-count { font-size: 1.2rem; color: #888; }
+
+.write-review { margin-bottom: 30px; }
+.write-review h3 { margin-top: 0; margin-bottom: 15px; font-size: 1.1rem; }
+.rating-select { font-size: 1.5rem; color: #444; cursor: pointer; margin-bottom: 15px; }
+.rating-select .active { color: #ffbf00; }
+.write-review textarea {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 12px;
+    color: white;
+    min-height: 100px;
+    margin-bottom: 15px;
+    resize: vertical;
+}
+.error-msg { color: #ff4444; font-size: 0.9rem; margin-bottom: 10px; }
+.btn-sm { padding: 8px 16px; font-size: 0.9rem; }
+
+.reviews-list { display: flex; flex-direction: column; gap: 20px; }
+.no-reviews { color: #888; font-style: italic; }
+
+.review-card { padding: 20px; }
+.review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.user-info { display: flex; align-items: center; gap: 10px; }
+.avatar-sm { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.username { font-weight: 600; font-size: 0.95rem; }
+
+.rating-display { text-align: right; }
+.stars { color: #ffbf00; display: block; font-size: 0.9rem; }
+.date { color: #666; font-size: 0.8rem; }
+.review-body { line-height: 1.6; color: #ddd; font-size: 0.95rem; }
 </style>

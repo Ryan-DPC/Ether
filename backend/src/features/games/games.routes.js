@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const GamesController = require('./games.controller');
 const verifyToken = require('../../middleware/auth');
+const reviewsRoutes = require('../reviews/reviews.routes');
+
+router.use('/:gameId/reviews', reviewsRoutes); // Nested route for reviews
 
 router.get('/all', GamesController.getAllGames);
 router.post('/add', verifyToken, GamesController.addGame); // Protected
