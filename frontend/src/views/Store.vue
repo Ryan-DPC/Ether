@@ -27,7 +27,7 @@ const applyFilters = () => {
 const buyItem = async (itemId: string, price: number) => {
   if (await alertStore.showConfirm({
     title: 'Purchase Confirmation',
-    message: `Buy this item for ${price} tokens?`,
+    message: `Buy this item for ${price} VTX?`,
     type: 'info',
     confirmText: 'Buy',
     cancelText: 'Cancel'
@@ -36,7 +36,7 @@ const buyItem = async (itemId: string, price: number) => {
       const result = await itemStore.purchaseItem(itemId)
       alertStore.showAlert({
         title: 'Success',
-        message: `Item purchased! Remaining tokens: ${result.remainingTokens}`,
+        message: `Item purchased! Remaining VTX: ${result.remainingTokens}`,
         type: 'success'
       })
       await itemStore.fetchStoreItems()
@@ -116,7 +116,7 @@ const equipItem = async (itemId: string) => {
         <div class="content-header">
           <h1>Featured Items</h1>
           <div class="balance-display">
-            <i class="fas fa-coins"></i> {{ userStore.user?.tokens?.toLocaleString() || 0 }} Tokens
+            <i class="fas fa-coins"></i> {{ userStore.user?.tokens?.toLocaleString() || 0 }} VTX
           </div>
         </div>
 
