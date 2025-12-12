@@ -12,7 +12,12 @@ import heroBg3 from '@/assets/images/hero-bg-3.png'
 const router = useRouter()
 const gameStore = useGameStore()
 const searchQuery = ref('')
-const activeCategory = ref('trending')
+const activeCategory = ref(localStorage.getItem('home_active_category') || 'trending')
+
+import { watch } from 'vue'
+watch(activeCategory, (newVal) => {
+  localStorage.setItem('home_active_category', newVal)
+})
 
 // Filtered Search Results
 const searchResults = computed(() => {
@@ -199,8 +204,9 @@ const categories = [
                 v-for="cat in categories" 
                 :key="cat.id"
                 class="cat-pill"
+                type="button"
                 :class="{ active: activeCategory === cat.id }"
-                @click="activeCategory = cat.id"
+                @click.prevent="activeCategory = cat.id"
               >
                 <i :class="cat.icon"></i> {{ cat.name }}
               </button>

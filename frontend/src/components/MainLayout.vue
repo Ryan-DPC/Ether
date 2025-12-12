@@ -61,7 +61,8 @@ onUnmounted(() => {
   display: flex;
   height: 100vh;
   width: 100vw;
-  padding-top: 32px; /* Space for title bar overlay */
+  width: 100vw;
+  padding-top: 0; /* Removed space for title bar overlay */
   background: #0f0b15; /* Base dark background */
   overflow: hidden;
   position: relative;
