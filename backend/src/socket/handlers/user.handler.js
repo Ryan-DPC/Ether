@@ -43,6 +43,6 @@ module.exports = (socket) => {
         } catch (error) {
             console.error(`Error removing socketId: ${error.message}`);
         }
-        console.log(`User disconnected: ${socket.data.name || socket.id}`);
+        console.log(`User disconnected: ${(socket.data && socket.data.name) || socket.id}`);
     });
 };
