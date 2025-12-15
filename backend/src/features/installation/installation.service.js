@@ -5,6 +5,7 @@ const pathConfigService = require('./path-config.service');
 const downloadService = require('./download.service');
 const extractionService = require('./extraction.service');
 const versionService = require('./version.service');
+const fs = require('fs').promises; // Added for file operations
 
 class InstallationService {
     /**
@@ -187,33 +188,55 @@ class InstallationService {
                 status: 'updating'
             });
 
-            // 5. Clean up old installation
-            console.log(`[Installation] Cleaning up old installation: ${installation.local_path}`);
-            await extractionService.cleanup(installation.local_path);
+            // 5. Prepare Temporary Directory (Safety Patch Strategy)
+            // We download/extract to a temp folder first, then merge.
+            // This prevents deleting the game if download fails and preserves user data (saves/configs).
+            const tempDirName = `.ether_update_${gameId}_${Date.now()}`;
+            const installRoot = path.dirname(installation.local_path); // Parent directory (e.g., C:/Games/Ether)
+            const tempDir = path.join(installRoot, tempDirName);
 
-            // 6. Download new version
-            const zipPath = path.join(installation.local_path, 'game.zip');
-            await downloadService.downloadFile(game.zipUrl, zipPath, userId, gameId, io);
+            await fs.mkdir(tempDir, { recursive: true });
+            console.log(`[Installation] Created temp dir: ${tempDir}`);
 
-            // 7. Extract new version
-            await extractionService.extractZip(zipPath, installation.local_path, userId, gameId, io);
+            try {
+                // 6. Download new version to Temp
+                const zipPath = path.join(tempDir, 'game.zip');
+                await downloadService.downloadFile(game.zipUrl, zipPath, userId, gameId, io);
 
-            // 8. Validate extraction
-            const manifest = await versionService.getLatestManifest(gameId);
-            const isValid = await extractionService.validateExtraction(installation.local_path, manifest || {});
+                // 7. Extract new version to Temp
+                await extractionService.extractZip(zipPath, tempDir, userId, gameId, io);
 
-            if (!isValid) {
-                throw new Error('Extraction validation failed');
+                // 8. Validate extraction (in Temp)
+                const manifest = await versionService.getLatestManifest(gameId);
+                const isValid = await extractionService.validateExtraction(tempDir, manifest || {});
+
+                if (!isValid) {
+                    throw new Error('Extraction validation failed (Integrity Check)');
+                }
+
+                // 9. Merge / Apply Update
+                // Copy files from Temp to Real Path (Overwriting existing ones)
+                // This acts as a "Patch" over the existing installation.
+                console.log(`[Installation] Applying update to: ${installation.local_path}`);
+                await fs.cp(tempDir, installation.local_path, { recursive: true, force: true });
+
+            } catch (innerError) {
+                // Cleanup temp on error
+                await extractionService.cleanup(tempDir);
+                throw innerError;
             }
 
-            // 9. Update installation record
+            // Cleanup temp after success
+            await extractionService.cleanup(tempDir);
+
+            // 10. Update installation record
             await GameInstallation.findByIdAndUpdate(installation._id, {
                 status: 'installed',
                 version: latestVersion,
                 last_checked: new Date()
             });
 
-            // 10. Emit completion event
+            // 11. Emit completion event
             io.to(userId).emit('installation:complete', {
                 gameId,
                 gameName: game.game_name,

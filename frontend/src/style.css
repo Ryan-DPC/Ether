@@ -1,11 +1,29 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Bases - Default Theme (Ether/Sakura Dark) */
+  --bg-primary: #0f0a15;
+  --bg-secondary: rgba(30, 25, 45, 0.7);
+  --bg-tertiary: rgba(255, 255, 255, 0.05);
+
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.4);
+
+  --accent-color: #ff7eb3;
+  --accent-hover: #ff5c9e;
+  --accent-glow: rgba(255, 126, 179, 0.4);
+
+  --border-color: rgba(255, 255, 255, 0.1);
+  --success-color: #2ecc71;
+  --error-color: #e74c3c;
+  --info-color: #3498db;
+
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: transparent;
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,14 +31,89 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* === Light Mode Overrides === */
+:root.light-mode {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e1e4e8;
+
+  --text-primary: #1a1a1a;
+  --text-secondary: #57606a;
+  --text-muted: #8c959f;
+
+  --accent-color: #ff7eb3; /* Keep brand color or adjust */
+  --accent-hover: #ff5c9e;
+  --accent-glow: rgba(255, 126, 179, 0.2);
+
+  --border-color: rgba(0, 0, 0, 0.1);
+
+  color-scheme: light;
+}
+
+/* === Themes === */
+
+/* Cyberpunk */
+:root.theme-cyberpunk {
+  --bg-primary: #050505;
+  --bg-secondary: rgba(10, 20, 30, 0.85);
+
+  --text-primary: #00f3ff;
+  --text-secondary: #00ff9f;
+  
+  --accent-color: #f700ff;
+  --accent-hover: #d200d9;
+  --accent-glow: rgba(247, 0, 255, 0.6);
+
+  --border-color: #00f3ff;
+}
+
+/* Retro (Synthwaveish) */
+:root.theme-retro {
+  --bg-primary: #2b213a;
+  --bg-secondary: rgba(45, 30, 60, 0.9);
+
+  --text-primary: #ffd319;
+  --text-secondary: #ff901f;
+
+  --accent-color: #ff2a6d;
+  --accent-hover: #d3003f;
+  --accent-glow: rgba(255, 42, 109, 0.5);
+
+  --border-color: #05d9e8;
+}
+
+/* Minimal (Monochrome) */
+:root.theme-minimal {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --accent-color: #000000;
+  --accent-hover: #333333;
+  --border-color: #e5e5e5;
+  color-scheme: light;
+}
+:root.theme-minimal.dark-mode {
+  --bg-primary: #000000;
+  --bg-secondary: #111111;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --accent-color: #ffffff;
+  --accent-hover: #cccccc;
+  --border-color: #333333;
+  color-scheme: dark;
+}
+
+/* === Global Re-styles === */
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--accent-color);
   text-decoration: inherit;
+  transition: 0.3s;
 }
 
 a:hover {
-  color: #535bf2;
+  text-shadow: 0 0 8px var(--accent-glow);
 }
 
 body {
@@ -29,6 +122,9 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s, color 0.3s;
 }
 
 h1 {
@@ -43,13 +139,16 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.25s;
+  border: 1px solid var(--border-color);
 }
 
 button:hover {
-  border-color: #646cff;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 15px var(--accent-glow);
 }
 
 button:focus,
@@ -59,6 +158,9 @@ button:focus-visible {
 
 .card {
   padding: 2em;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
 }
 
 #app {
@@ -68,22 +170,7 @@ button:focus-visible {
   text-align: center;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: transparent;
-  }
-
-  a:hover {
-    color: #747bff;
-  }
-
-  button {
-    background-color: #f9f9f9;
-  }
-}
-
-/* Global Transitions */
+/* Global Transitions for Vue */
 .chat-pop-enter-active,
 .chat-pop-leave-active {
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);

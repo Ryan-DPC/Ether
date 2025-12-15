@@ -51,12 +51,12 @@ Ce projet utilise **Docker** pour simplifier l'installation et garantir un envir
     *   Le script affichera les utilisateurs mis à jour et leur nouveau solde dans la console.
 
 3.  **Application Desktop (Frontend)**
-    Le frontend est une application Electron (Desktop).
+    Le frontend est une application **Tauri** (Desktop) construite avec Vue 3.
     *   **Développement local** :
         ```bash
         cd frontend
         npm install
-        npm run electron:dev
+        npm run tauri dev
         ```
     *   **Production (Build)** :
         Le projet est configuré avec **GitHub Actions** pour générer automatiquement l'exécutable Windows (`.exe`) à chaque push sur la branche principale.

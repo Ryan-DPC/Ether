@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
+import { useThemeStore } from '../stores/themeStore' // Import Theme Store
+// import { useItemStore } from '../stores/itemStore'   // Import Item Store
 import logoImage from '@/assets/images/Logo.svg'
 import SakuraBackground from '@/components/SakuraBackground.vue'
 
 const logo = logoImage
 const userStore = useUserStore()
+const themeStore = useThemeStore()
+// const itemStore = useItemStore()
 
 const activeTab = ref('Account')
-const tabs = ['Account', 'Profile', 'Security', 'Notifications']
+const tabs = ['Account', 'Profile', 'Security', 'Notifications', 'Appearance'] // Added Appearance tab
 
 const form = reactive({
   username: '',
@@ -86,6 +90,42 @@ const changePassword = async () => {
     // TODO: Implement password change endpoint
     statusMessage.value = 'Password change not yet implemented.'
     statusType.value = 'info'
+}
+
+// === Theme & Plugins Logic ===
+const availableThemes = [
+    { id: 'default', name: 'Ether Default', previewColor: '#ff7eb3' },
+    { id: 'cyberpunk', name: 'Cyberpunk', previewColor: '#00f3ff', requiredItem: 'Theme: Cyberpunk' },
+    { id: 'retro', name: 'Synthwave Retro', previewColor: '#ff2a6d', requiredItem: 'Theme: Retro' },
+    { id: 'minimal', name: 'Minimalist', previewColor: '#ffffff' }
+]
+
+const selectTheme = (themeId: string) => {
+    /* 
+       // Logic for Item Check (commented out for functionality demo, can be enabled if items exist)
+       const theme = availableThemes.find(t => t.id === themeId);
+       if (theme?.requiredItem) {
+           const hasItem = itemStore.myItems.find(i => i.name === theme.requiredItem);
+           if (!hasItem) {
+               statusMessage.value = `You need to own '${theme.requiredItem}' to use this theme!`;
+               statusType.value = 'error';
+               return;
+           }
+       }
+    */
+    themeStore.setTheme(themeId);
+}
+
+const addNewPlugin = () => {
+    // Mock user adding a plugin
+    const name = prompt("Enter Plugin Name (e.g. 'Damage Meter')");
+    if (name) {
+        themeStore.addPlugin({
+            name,
+            version: '1.0.0',
+            enabled: true
+        });
+    }
 }
 </script>
 
@@ -198,41 +238,58 @@ const changePassword = async () => {
             <button class="save-btn" @click="changePassword">UPDATE PASSWORD</button>
         </div>
 
-        <!-- NOTIFICATIONS TAB -->
-        <div v-if="activeTab === 'Notifications'" class="tab-content">
+
+
+        <!-- APPEARANCE TAB -->
+        <div v-if="activeTab === 'Appearance'" class="tab-content">
+            <div class="section-label">Display Mode</div>
             <div class="toggle-group">
                 <div class="toggle-item">
                     <div class="toggle-info">
-                        <span class="toggle-label">Email Updates</span>
-                        <span class="toggle-desc">Receive updates about your account activity.</span>
+                        <span class="toggle-label">Dark Mode</span>
+                        <span class="toggle-desc">Toggle between Light and Dark interface.</span>
                     </div>
                     <label class="switch">
-                        <input type="checkbox" v-model="form.notification_preferences.email_updates">
+                        <input type="checkbox" :checked="themeStore.darkMode" @change="themeStore.toggleDarkMode()">
                         <span class="slider round"></span>
                     </label>
                 </div>
-                
-                <div class="toggle-item">
-                    <div class="toggle-info">
-                        <span class="toggle-label">Push Notifications</span>
-                        <span class="toggle-desc">Receive push notifications on your device.</span>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" v-model="form.notification_preferences.push_notifications">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
+            </div>
 
-                <div class="toggle-item">
-                    <div class="toggle-info">
-                        <span class="toggle-label">Marketing Emails</span>
-                        <span class="toggle-desc">Receive news and special offers.</span>
+            <div class="section-label">Themes</div>
+            <div class="themes-grid">
+                <div 
+                    v-for="theme in availableThemes" 
+                    :key="theme.id" 
+                    class="theme-card"
+                    :class="{ active: themeStore.currentTheme === theme.id }"
+                    @click="selectTheme(theme.id)"
+                >
+                    <div class="theme-preview" :style="{ background: theme.previewColor }"></div>
+                    <div class="theme-info">
+                        <div class="theme-name">{{ theme.name }}</div>
+                        <div v-if="theme.requiredItem" class="theme-req">
+                            <i class="fas fa-lock" style="font-size: 0.8em; margin-right: 5px;"></i> {{ theme.requiredItem }}
+                        </div>
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" v-model="form.notification_preferences.marketing_emails">
-                        <span class="slider round"></span>
-                    </label>
                 </div>
+            </div>
+
+            <div class="section-label">Community Plugins</div>
+            <div class="plugins-list">
+                <div v-if="themeStore.plugins.length === 0" class="empty-plugins">
+                    No plugins installed.
+                </div>
+                <div v-for="(plugin, index) in themeStore.plugins" :key="index" class="plugin-item">
+                    <div class="plugin-details">
+                        <span class="plugin-name">{{ plugin.name }}</span>
+                        <span class="plugin-version">v{{ plugin.version }}</span>
+                    </div>
+                    <div class="plugin-actions">
+                         <button class="remove-btn" @click="themeStore.removePlugin(index)">Remove</button>
+                    </div>
+                </div>
+                <button class="add-plugin-btn" @click="addNewPlugin()">+ Install Plugin</button>
             </div>
         </div>
 
@@ -551,5 +608,111 @@ input:checked + .slider:before {
 
 .slider.round:before {
   border-radius: 50%;
+}
+
+/* Themes Grid */
+.themes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+}
+
+.theme-card {
+    background: var(--bg-secondary);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 10px;
+}
+
+.theme-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent-color);
+}
+
+.theme-card.active {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.theme-preview {
+    height: 80px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+}
+
+.theme-info {
+    text-align: center;
+}
+
+.theme-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.theme-req {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 5px;
+}
+
+/* Plugins */
+.plugins-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.plugin-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.plugin-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.plugin-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.plugin-version {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.remove-btn {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    padding: 5px 10px;
+    font-size: 0.8rem;
+}
+
+.remove-btn:hover {
+    background: rgba(231, 76, 60, 0.4);
+}
+
+.add-plugin-btn {
+    margin-top: 15px;
+    background: transparent;
+    border: 2px dashed var(--border-color);
+    color: var(--text-secondary);
+    padding: 15px;
+}
+
+.add-plugin-btn:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
 }
 </style>
