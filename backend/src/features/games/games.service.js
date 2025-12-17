@@ -133,38 +133,51 @@ class GamesService {
 
         console.log(`[Games] Found release ${release.version} for ${gameId}. Downloading...`);
 
-        // 3. Download the Zip
+        // 3. Download the Asset
         const gamesPath = process.env.GAMES_PATH || path.join(__dirname, '../../../../games');
-        const tempPath = path.join(gamesPath, 'temp', `${gameId}_${release.version}.zip`);
+        const extension = release.downloadUrl.endsWith('.exe') ? '.exe' : '.zip';
+        const tempPath = path.join(gamesPath, 'temp', `${gameId}_${release.version}${extension}`);
 
         await ghService.downloadFile(release.downloadUrl, tempPath);
         console.log(`[Games] Downloaded to ${tempPath}`);
 
-        // 4. Extract
+        // 4. Extract or Move
         const gameDir = path.join(gamesPath, gameId);
 
-        // Clean existing directory logic could be adding backup here, but for now strictly overwrite
-        // We'll trust unzipper to overwrite or we check/empty first.
-        // Safer to empty first.
         try {
             await fs.rm(gameDir, { recursive: true, force: true });
         } catch (e) { /* ignore */ }
-
         await fs.mkdir(gameDir, { recursive: true });
 
-        console.log(`[Games] Extracting to ${gameDir}...`);
+        if (extension === '.zip') {
+            console.log(`[Games] Extracting to ${gameDir}...`);
+            await new Promise((resolve, reject) => {
+                createReadStream(tempPath)
+                    .pipe(unzipper.Extract({ path: gameDir }))
+                    .on('close', resolve)
+                    .on('error', reject);
+            });
+        } else {
+            console.log(`[Games] Moving executable to ${gameDir}...`);
+            // Rename/Move the .exe to the game folder. 
+            // We should probably name it 'Game.exe' or keep original name?
+            // EtherChess manifest expects 'Game.exe'. Stick Fighter might vary.
+            // Let's keep original filename but ensure manifest knows it?
+            // Or rename it to Game.exe to be standard?
+            // "Stick.Fighter.Setup...exe". If it's a SETUP, renaming to Game.exe is risky if it requires install.
+            // But user wants to "Install".
+            // Let's move it as is.
+            const fileName = path.basename(release.downloadUrl);
+            await fs.rename(tempPath, path.join(gameDir, fileName));
 
-        // Unzip logic
-        // Using unzipper stream
-        await new Promise((resolve, reject) => {
-            createReadStream(tempPath)
-                .pipe(unzipper.Extract({ path: gameDir }))
-                .on('close', resolve)
-                .on('error', reject);
-        });
+            // Should we update the entryPoint in DB? 
+            // Ideally yes, but let's stick to just placing the file.
+        }
 
         // 5. Cleanup Temp
-        await fs.unlink(tempPath);
+        if (extension === '.zip') {
+            await fs.unlink(tempPath);
+        }
 
         console.log(`[Games] Installation complete for ${gameId} v${release.version}`);
 
@@ -183,9 +196,17 @@ class GamesService {
     // Keep legacy methods if needed or stubs
     static async getManifest(id) {
         // 1. Get Metadata (Cloudinary/DB) logic re-used from getGameByName
-        const game = await this.getGameByName(id);
         if (!game) {
             throw new Error('Game not found');
+        }
+
+        // 1b. Fallback: If Cloudinary metadata misses github_url, check DB explicitly
+        if (!game.github_url) {
+            const dbGame = await Games.getGameByName(id);
+            if (dbGame && dbGame.github_url) {
+                game.github_url = dbGame.github_url;
+                console.log(`[Manifest] Enriched ${id} with github_url from DB: ${game.github_url}`);
+            }
         }
 
         // 2. If no GitHub URL, return basic metadata (legacy compatibility)

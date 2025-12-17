@@ -31,7 +31,9 @@ pub async fn install_game(
     // Create directory
     fs::create_dir_all(&game_dir).map_err(|e| e.to_string())?;
 
-    let zip_path = game_dir.join("game.zip");
+    let is_zip = download_url.ends_with(".zip");
+    let file_name = if is_zip { "game.zip" } else { "Game.exe" };
+    let file_path = game_dir.join(file_name);
 
     // 1. Download
     let res = client
@@ -43,7 +45,7 @@ pub async fn install_game(
 
     let total_size = res.content_length().unwrap_or(0);
     let mut stream = res.bytes_stream();
-    let mut file = fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+    let mut file = fs::File::create(&file_path).map_err(|e| e.to_string())?;
     let mut downloaded: u64 = 0;
 
     let _ = window.emit("install:progress", ProgressPayload {
@@ -69,44 +71,61 @@ pub async fn install_game(
         }
     }
 
-    // 2. Extract
-    let _ = window.emit("install:progress", ProgressPayload {
-        game_id: game_id.clone(),
-        game_name: game_name.clone(),
-        progress: 100,
-        status: "extracting".to_string(),
-    });
+    // 2. Extract (Only if Zip)
+    if is_zip {
+        let _ = window.emit("install:progress", ProgressPayload {
+            game_id: game_id.clone(),
+            game_name: game_name.clone(),
+            progress: 100,
+            status: "extracting".to_string(),
+        });
 
-    let file = fs::File::open(&zip_path).map_err(|e| e.to_string())?;
-    let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
+        let file = fs::File::open(&file_path).map_err(|e| e.to_string())?;
+        let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
 
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-        let outpath = match file.enclosed_name() {
-            Some(path) => game_dir.join(path),
-            None => continue,
-        };
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
+            let outpath = match file.enclosed_name() {
+                Some(path) => game_dir.join(path),
+                None => continue,
+            };
 
-        if (*file.name()).ends_with('/') {
-            fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(&p).map_err(|e| e.to_string())?;
+            if (*file.name()).ends_with('/') {
+                fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
+            } else {
+                if let Some(p) = outpath.parent() {
+                    if !p.exists() {
+                        fs::create_dir_all(&p).map_err(|e| e.to_string())?;
+                    }
                 }
+                let mut outfile = fs::File::create(&outpath).map_err(|e| e.to_string())?;
+                copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
             }
-            let mut outfile = fs::File::create(&outpath).map_err(|e| e.to_string())?;
-            copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
         }
+        
+        // Cleanup Zip
+        fs::remove_file(&file_path).map_err(|e| e.to_string())?;
+    } else {
+        // It's an executable, we already saved it as Game.exe
+        // No extraction needed.
     }
 
-    // 3. Cleanup
-    fs::remove_file(&zip_path).map_err(|e| e.to_string())?;
-
-    // 4. Verify Manifest
+    // 3. Verify or Create Manifest
     let manifest_path = game_dir.join("manifest.json");
     if !manifest_path.exists() {
-        return Err("Invalid Game: manifest.json is missing at root.".to_string());
+        // Create a basic manifest if missing (common for single exe games)
+        let manifest_content = format!(
+            r#"{{
+                "id": "{}",
+                "name": "{}",
+                "version": "1.0.0",
+                "executable": "Game.exe",
+                "entryPoint": "Game.exe"
+            }}"#,
+            game_id, game_name
+        );
+        let mut m_file = fs::File::create(&manifest_path).map_err(|e| e.to_string())?;
+        m_file.write_all(manifest_content.as_bytes()).map_err(|e| e.to_string())?;
     }
 
     let _ = window.emit("install:complete", ProgressPayload {

@@ -34,8 +34,7 @@ class GitHubService {
             const response = await fetch(`${this.baseUrl}/repos/${owner}/${repo}/releases/latest`, {
                 headers: {
                     'Accept': 'application/vnd.github.v3+json',
-                    // Add Authorization header if rate limits become an issue:
-                    // 'Authorization': `token ${process.env.GITHUB_TOKEN}`
+                    'Authorization': process.env.GITHUB_TOKEN ? `token ${process.env.GITHUB_TOKEN}` : undefined
                 }
             });
 
@@ -49,8 +48,12 @@ class GitHubService {
 
             const data = await response.json();
 
-            // Find the zip asset
-            const zipAsset = data.assets.find(a => a.name.endsWith('.zip') || a.content_type === 'application/zip');
+            // Find zip or executable
+            const zipAsset = data.assets.find(a =>
+                a.name.endsWith('.zip') ||
+                a.content_type === 'application/zip' ||
+                a.name.endsWith('.exe')
+            );
 
             return {
                 version: data.tag_name,
