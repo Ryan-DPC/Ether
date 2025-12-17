@@ -196,6 +196,7 @@ class GamesService {
     // Keep legacy methods if needed or stubs
     static async getManifest(id) {
         // 1. Get Metadata (Cloudinary/DB) logic re-used from getGameByName
+        const game = await this.getGameByName(id);
         if (!game) {
             throw new Error('Game not found');
         }
