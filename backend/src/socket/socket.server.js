@@ -24,6 +24,10 @@ const connectToCentralServer = () => {
         randomizationFactor: 0.1, // Reduce randomization to ensure minimum delay
         auth: {
             token: process.env.WS_CENTRAL_TOKEN // Add authentication token
+        },
+        extraHeaders: {
+            "User-Agent": "EtherBackend/1.0",
+            "Origin": "https://backend-ether.onrender.com" // Use Backend URL or legitimate origin
         }
     });
 

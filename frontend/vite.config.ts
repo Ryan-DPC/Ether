@@ -22,14 +22,15 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/api': {
-          target: env.API_URL || 'http://localhost:3001',
+          target: env.API_URL || 'https://backend-ether.onrender.com',
           changeOrigin: true,
           secure: false
         },
         '/socket.io': {
-          target: env.WS_URL || 'http://localhost:3002',
+          target: env.WS_URL || 'https://server-1-z9ok.onrender.com',
           ws: true,
-          changeOrigin: true
+          changeOrigin: true,
+          secure: false
         }
       },
       build: {

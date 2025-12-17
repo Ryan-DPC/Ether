@@ -23,6 +23,11 @@ const getSocketUrl = () => {
 
     if (url) return url;
 
+    // Hardcoded production fallback
+    if (import.meta.env.PROD && (isTauri || isElectron)) {
+        return 'https://server-1-z9ok.onrender.com';
+    }
+
     // Use localhost default
     return 'http://localhost:3002'
 }

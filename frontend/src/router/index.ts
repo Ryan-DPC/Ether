@@ -128,16 +128,6 @@ const router = createRouter({
 router.beforeEach(async (to, _from, next) => {
     const userStore = useUserStore()
 
-    // If going to login/register, just proceed
-    if (to.path === '/login' || to.path === '/register') {
-        if (userStore.isAuthenticated) {
-            next('/home')
-        } else {
-            next()
-        }
-        return
-    }
-
     // Check if we have a token but not authenticated yet
     const token = localStorage.getItem('token') || sessionStorage.getItem('token')
     if (token && !userStore.isAuthenticated) {
@@ -147,11 +137,18 @@ router.beforeEach(async (to, _from, next) => {
         } catch (e) {
             // Token is invalid, clear it
             localStorage.removeItem('token')
-            if (to.meta.requiresAuth) {
-                next('/login')
-                return
-            }
+            sessionStorage.removeItem('token')
         }
+    }
+
+    // If going to login/register, check auth state
+    if (to.path === '/login' || to.path === '/register') {
+        if (userStore.isAuthenticated) {
+            next('/home')
+        } else {
+            next()
+        }
+        return
     }
 
     if (to.meta.requiresAuth && !userStore.isAuthenticated) {

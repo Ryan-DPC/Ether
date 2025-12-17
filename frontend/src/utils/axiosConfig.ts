@@ -9,7 +9,12 @@ const getBaseURL = () => {
         return import.meta.env.VITE_API_URL
     }
 
-    // In Desktop App (Tauri/Electron), use absolute localhost URL
+    // Hardcoded production fallback for Desktop App
+    if (import.meta.env.PROD && (isTauri || isElectron)) {
+        return 'https://backend-ether.onrender.com/api'
+    }
+
+    // In Desktop App (Tauri/Electron) DEV mode, use localhost
     if (isTauri || isElectron) {
         return 'http://localhost:3001/api'
     }
