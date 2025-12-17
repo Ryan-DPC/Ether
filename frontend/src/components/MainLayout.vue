@@ -63,7 +63,7 @@ onUnmounted(() => {
   width: 100vw;
   width: 100vw;
   padding-top: 0; /* Removed space for title bar overlay */
-  background: #0f0b15; /* Base dark background */
+  background: transparent; /* Allow SakuraBackground to show through */
   overflow: hidden;
   position: relative;
   box-sizing: border-box;

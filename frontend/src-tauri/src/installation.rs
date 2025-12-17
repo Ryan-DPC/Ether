@@ -38,10 +38,14 @@ pub async fn install_game(
     // 1. Download
     let res = client
         .get(&download_url)
-        .header("User-Agent", "EtherLauncher/1.0")
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         .send()
         .await
         .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(format!("Download failed with status: {}", res.status()));
+    }
 
     let total_size = res.content_length().unwrap_or(0);
     let mut stream = res.bytes_stream();
