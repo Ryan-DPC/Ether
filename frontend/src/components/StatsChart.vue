@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+
 import {
   Chart as ChartJS,
   Title,

@@ -68,7 +68,7 @@ class Users {
         // Case insensitive search for username starting with baseUsername followed by #
         // Escape special regex characters in baseUsername just in case
         const escapedUsername = baseUsername.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`^${escapedUsername}#[a-zA-Z0-9]{4}$`, 'i');
+        const regex = new RegExp(`^${escapedUsername}#[a-zA-Z0-9]{3,4}$`, 'i');
         const doc = await UserModel.findOne({ username: regex }).lean();
         if (!doc) return null;
         return { ...doc, id: doc._id.toString() };

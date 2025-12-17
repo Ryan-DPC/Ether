@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import axios from 'axios'
+import { getApiUrl } from '../utils/url'
 
 const route = useRoute()
 const userId = route.params.userId as string
@@ -42,9 +43,7 @@ onMounted(async () => {
       <header class="profile-header">
         <div class="profile-header-section">
           <div class="profile-avatar">
-import { getApiUrl } from '../utils/url';
-// ... inside template ...
-           <img :src="user.profile_pic || `${getApiUrl()}/public/default-game.svg`">
+            <img :src="user.profile_pic || `${getApiUrl()}/public/default-game.svg`">
           </div>
           <div class="profile-info">
             <h1>{{ user.username || 'Utilisateur' }}</h1>

@@ -4,6 +4,7 @@ import ToastNotification from './components/ToastNotification.vue'
 import AlertModal from './components/AlertModal.vue'
 import SakuraBackground from './components/SakuraBackground.vue'
 import ChatPopup from '@/components/ChatPopup.vue'
+import TitleBar from '@/components/TitleBar.vue' // Import TitleBar
 import { useUserStore } from '@/stores/userStore'
 import { useChatStore } from '@/stores/chatStore'
 
@@ -12,7 +13,10 @@ const chatStore = useChatStore()
 </script>
 
 <template>
-  <RouterView />
+  <TitleBar /> <!-- Add TitleBar -->
+  <div class="app-content">
+    <RouterView />
+  </div>
   <SakuraBackground />
   <SakuraBackground />
   <ToastNotification />
@@ -26,3 +30,9 @@ const chatStore = useChatStore()
     />
   </Transition>
 </template>
+
+<style>
+.app-content {
+  padding-top: 32px; /* Space for TitleBar */
+}
+</style>

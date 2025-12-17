@@ -1,55 +1,35 @@
 # Dependencies
-node_modules/
+node_modules
 .pnp
 .pnp.js
 
 # Testing
-coverage/
+coverage
 
 # Production
-build/
-dist/
-dist-electron/
-out/
+build
+dist
 
-# Environment variables
+# Misc
+.DS_Store
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-
-# IDEs
-.idea/
-.vscode/
-*.swp
-*.swo
-*.sublime-workspace
-
-# OS
-.DS_Store
-Thumbs.db
-Desktop.ini
-
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
-# Temporary files
-tmp/
-temp/
-test_download.zip
+# Editor
+.idea
+.vscode
+*.swp
+*.swo
 
-# TypeScript
-*.tsbuildinfo
-
-# Optional eslint cache
-.eslintcache
-
-# Electron
-release/
+# Service Configs
+.env.backend
+.env.server
+.env.frontend

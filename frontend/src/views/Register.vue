@@ -31,8 +31,8 @@ const handleRegister = async () => {
         error.value = 'Username must be alphanumeric'
         return
     }
-    if (!/^[a-zA-Z0-9]{4}$/.test(userTag.value)) {
-        error.value = 'Tag must be exactly 4 alphanumeric characters'
+    if (!/^[a-zA-Z0-9]{3,4}$/.test(userTag.value)) {
+        error.value = 'Tag must be 3 or 4 alphanumeric characters'
         return
     }
     if (password.value !== confirmPassword.value) {

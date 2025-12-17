@@ -6,8 +6,8 @@ const crypto = require('crypto');
 
 class AuthService {
     static async registerUser({ username, email, password, file, tag }) {
-        if (!tag || !/^[a-zA-Z0-9]{4}$/.test(tag)) {
-            throw new Error('Le tag doit être composé de 4 caractères alphanumériques.');
+        if (!tag || !/^[a-zA-Z0-9]{3,4}$/.test(tag)) {
+            throw new Error('Le tag doit être composé de 3 ou 4 caractères alphanumériques.');
         }
 
         const fullUsername = `${username}#${tag}`;
